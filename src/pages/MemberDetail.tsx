@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -78,27 +77,57 @@ const MemberDetail = () => {
 
   const fetchRelationships = async () => {
     try {
-      const { data, error } = await supabase
+      // First get all relationships involving this person
+      const { data: relationshipData, error: relationshipError } = await supabase
         .from("Relationship")
-        .select(`
-          id,
-          person1_id,
-          person2_id,
-          type,
-          person1:person1_id(id, full_name, gender, birth_date),
-          person2:person2_id(id, full_name, gender, birth_date)
-        `)
+        .select("*")
         .or(`person1_id.eq.${parseInt(id!)},person2_id.eq.${parseInt(id!)}`);
 
-      if (error) {
+      if (relationshipError) {
         toast({
           title: "获取关系失败",
-          description: error.message,
+          description: relationshipError.message,
           variant: "destructive"
         });
-      } else {
-        setRelationships(data || []);
+        return;
       }
+
+      // Get all unique person IDs we need to fetch
+      const personIds = new Set<number>();
+      relationshipData?.forEach(rel => {
+        personIds.add(rel.person1_id);
+        personIds.add(rel.person2_id);
+      });
+
+      // Fetch all individuals involved in relationships
+      const { data: individualsData, error: individualsError } = await supabase
+        .from("Individual")
+        .select("*")
+        .in("id", Array.from(personIds));
+
+      if (individualsError) {
+        toast({
+          title: "获取个人信息失败",
+          description: individualsError.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create a map for quick lookup
+      const individualsMap = new Map<number, Individual>();
+      individualsData?.forEach(person => {
+        individualsMap.set(person.id, person);
+      });
+
+      // Combine relationship data with individual data
+      const enrichedRelationships: Relationship[] = relationshipData?.map(rel => ({
+        ...rel,
+        person1: individualsMap.get(rel.person1_id),
+        person2: individualsMap.get(rel.person2_id)
+      })) || [];
+
+      setRelationships(enrichedRelationships);
     } catch (error) {
       toast({
         title: "获取关系失败",

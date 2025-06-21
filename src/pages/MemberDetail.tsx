@@ -53,7 +53,7 @@ const MemberDetail = () => {
       const { data, error } = await supabase
         .from("Individual")
         .select("*")
-        .eq("id", id)
+        .eq("id", parseInt(id!))
         .single();
 
       if (error) {
@@ -88,7 +88,7 @@ const MemberDetail = () => {
           person1:person1_id(id, full_name, gender, birth_date),
           person2:person2_id(id, full_name, gender, birth_date)
         `)
-        .or(`person1_id.eq.${id},person2_id.eq.${id}`);
+        .or(`person1_id.eq.${parseInt(id!)},person2_id.eq.${parseInt(id!)}`);
 
       if (error) {
         toast({

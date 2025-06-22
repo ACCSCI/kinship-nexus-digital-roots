@@ -10,6 +10,9 @@ import MemberDetail from "./pages/MemberDetail";
 import Branches from "./pages/Branches";
 import Tree from "./pages/Tree";
 import Stats from "./pages/Stats";
+import Relationships from "./pages/Relationships";
+import Settings from "./pages/Settings";
+import Events from "./pages/Events";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +30,9 @@ const App = () => (
           <Route path="/branches" element={<Branches />} />
           <Route path="/tree" element={<Tree />} />
           <Route path="/stats" element={<Stats />} />
+          <Route path="/relationships" element={<Relationships />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/events" element={<Events />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

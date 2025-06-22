@@ -128,6 +128,15 @@ const Dashboard = () => {
               <Button variant="ghost" onClick={() => navigate("/stats")}>
                 统计分析
               </Button>
+              <Button variant="ghost" onClick={() => navigate("/relationships")}>
+                关系管理
+              </Button>
+              <Button variant="ghost" onClick={() => navigate("/events")}>
+                事件管理
+              </Button>
+              <Button variant="ghost" onClick={() => navigate("/settings")}>
+                设置
+              </Button>
               <Button
                 onClick={() => {
                   supabase.auth.signOut();
@@ -249,7 +258,8 @@ const Dashboard = () => {
             </CardHeader>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate("/relationships")}>
             <CardHeader>
               <Link className="h-12 w-12 text-orange-600 mb-4" />
               <CardTitle>建立关系</CardTitle>
@@ -259,7 +269,8 @@ const Dashboard = () => {
             </CardHeader>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate("/settings")}>
             <CardHeader>
               <Settings className="h-12 w-12 text-gray-600 mb-4" />
               <CardTitle>系统设置</CardTitle>

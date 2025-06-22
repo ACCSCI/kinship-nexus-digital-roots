@@ -2,40 +2,38 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { TreePine, Search } from "lucide-react";
+import { TreePine, Users, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import {
   ReactFlow,
-  MiniMap,
-  Controls,
+  Node,
+  Edge,
   Background,
+  Controls,
+  MiniMap,
   useNodesState,
   useEdgesState,
   addEdge,
   Connection,
-  Edge,
-  Node,
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+  ConnectionMode,
+  Panel,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 
+// Match the actual database schema
 interface Individual {
   id: number;
   full_name: string;
   gender: string;
-  birth_date: string | null;
-  birth_place: string | null;
+  birth_date: string;
+  birth_place: string;
   death_date: string | null;
-  death_place: string | null;
-  occupation: string | null;
-  education: string | null;
-  notes: string | null;
+  residence: string | null;
   biography: string | null;
   photo_path: string | null;
-  residence: string | null;
   created_at: string;
 }
 
@@ -44,50 +42,76 @@ interface Relationship {
   person1_id: number;
   person2_id: number;
   type: string;
+  created_at: string;
 }
 
 const Tree = () => {
   const [individuals, setIndividuals] = useState<Individual[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedPerson, setSelectedPerson] = useState<Individual | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNodeData, setSelectedNodeData] = useState<Individual | null>(null);
+  const [familyFilter, setFamilyFilter] = useState<string>("all");
+  const [familyNames, setFamilyNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (individuals.length > 0) {
+      generateFamilyTree();
+    }
+  }, [individuals, relationships, familyFilter]);
+
   const fetchData = async () => {
     try {
-      const [individualsResult, relationshipsResult] = await Promise.all([
-        supabase.from("Individual").select("*"),
-        supabase.from("Relationship").select("*")
-      ]);
+      // Fetch individuals
+      const { data: individualsData, error: individualsError } = await supabase
+        .from("Individual")
+        .select("*")
+        .order("full_name");
 
-      if (individualsResult.error) {
+      if (individualsError) {
         toast({
           title: "获取个人数据失败",
-          description: individualsResult.error.message,
+          description: individualsError.message,
           variant: "destructive"
         });
-      } else {
-        setIndividuals(individualsResult.data || []);
+        return;
       }
 
-      if (relationshipsResult.error) {
+      // Fetch relationships
+      const { data: relationshipsData, error: relationshipsError } = await supabase
+        .from("Relationship")
+        .select("*");
+
+      if (relationshipsError) {
         toast({
           title: "获取关系数据失败",
-          description: relationshipsResult.error.message,
+          description: relationshipsError.message,
           variant: "destructive"
         });
-      } else {
-        setRelationships(relationshipsResult.data || []);
+        return;
       }
+
+      setIndividuals(individualsData || []);
+      setRelationships(relationshipsData || []);
+
+      // Extract unique family names
+      const families = new Set<string>();
+      individualsData?.forEach(person => {
+        if (person.full_name) {
+          const familyName = person.full_name.charAt(0);
+          families.add(familyName);
+        }
+      });
+      setFamilyNames(Array.from(families).sort());
+
     } catch (error) {
       toast({
         title: "获取数据失败",
@@ -99,111 +123,66 @@ const Tree = () => {
     }
   };
 
-  const buildFamilyTree = useCallback((rootPerson: Individual) => {
-    const individualsMap = new Map<number, Individual>();
-    individuals.forEach(person => individualsMap.set(person.id, person));
+  const generateFamilyTree = () => {
+    // Filter individuals based on selected family
+    const filteredIndividuals = familyFilter === "all" 
+      ? individuals 
+      : individuals.filter(person => person.full_name.startsWith(familyFilter));
 
-    const newNodes: Node[] = [];
-    const newEdges: Edge[] = [];
-    const processedIds = new Set<number>();
+    // Create nodes for filtered individuals
+    const newNodes: Node[] = filteredIndividuals.map((person, index) => ({
+      id: person.id.toString(),
+      type: 'default',
+      position: { 
+        x: (index % 4) * 250, 
+        y: Math.floor(index / 4) * 150 
+      },
+      data: { 
+        label: (
+          <div className="p-2 text-center">
+            <div className="font-semibold">{person.full_name}</div>
+            <div className="text-xs text-gray-500">{person.gender === 'male' ? '男' : '女'}</div>
+            <div className="text-xs text-gray-400">
+              {new Date(person.birth_date).getFullYear()}
+              {person.death_date && ` - ${new Date(person.death_date).getFullYear()}`}
+            </div>
+          </div>
+        ),
+        person: person
+      },
+      style: {
+        background: person.gender === 'male' ? '#dbeafe' : '#fef3f2',
+        border: '2px solid #cbd5e1',
+        borderRadius: '8px',
+        width: 180,
+      }
+    }));
 
-    const addPersonNode = (person: Individual, x: number, y: number, level: number) => {
-      if (processedIds.has(person.id)) return;
-      
-      processedIds.add(person.id);
-      
-      const birthYear = person.birth_date ? new Date(person.birth_date).getFullYear() : '未知';
-      
-      newNodes.push({
-        id: person.id.toString(),
-        type: 'default',
-        position: { x, y },
-        data: { 
-          label: `${person.full_name}\n(${birthYear})`,
-          person: person
+    // Create edges for relationships between filtered individuals
+    const filteredPersonIds = new Set(filteredIndividuals.map(p => p.id));
+    const newEdges: Edge[] = relationships
+      .filter(rel => 
+        filteredPersonIds.has(rel.person1_id) && 
+        filteredPersonIds.has(rel.person2_id)
+      )
+      .map(rel => ({
+        id: `${rel.person1_id}-${rel.person2_id}`,
+        source: rel.person1_id.toString(),
+        target: rel.person2_id.toString(),
+        label: rel.type === 'parent' ? '父母' : rel.type === 'spouse' ? '配偶' : rel.type,
+        type: 'smoothstep',
+        style: { 
+          stroke: rel.type === 'parent' ? '#10b981' : '#f59e0b',
+          strokeWidth: 2
         },
-        style: {
-          background: person.gender === 'male' ? '#dbeafe' : '#fce7f3',
-          border: '2px solid #6366f1',
-          borderRadius: '8px',
-          padding: '10px',
-          fontSize: '12px',
-          textAlign: 'center',
-        },
-      });
-    };
-
-    // Add root person
-    addPersonNode(rootPerson, 400, 300, 0);
-
-    // Find and add parents
-    const parentRelations = relationships.filter(rel => 
-      rel.type === 'parent' && rel.person2_id === rootPerson.id
-    );
-    
-    parentRelations.forEach((rel, index) => {
-      const parent = individualsMap.get(rel.person1_id);
-      if (parent) {
-        addPersonNode(parent, 300 + (index * 200), 150, -1);
-        newEdges.push({
-          id: `parent-${rel.id}`,
-          source: parent.id.toString(),
-          target: rootPerson.id.toString(),
-          type: 'smoothstep',
-          label: '父母',
-          style: { stroke: '#6366f1' },
-        });
-      }
-    });
-
-    // Find and add children
-    const childRelations = relationships.filter(rel => 
-      rel.type === 'parent' && rel.person1_id === rootPerson.id
-    );
-    
-    childRelations.forEach((rel, index) => {
-      const child = individualsMap.get(rel.person2_id);
-      if (child) {
-        addPersonNode(child, 300 + (index * 150), 450, 1);
-        newEdges.push({
-          id: `child-${rel.id}`,
-          source: rootPerson.id.toString(),
-          target: child.id.toString(),
-          type: 'smoothstep',
-          label: '子女',
-          style: { stroke: '#10b981' },
-        });
-      }
-    });
-
-    // Find and add spouse
-    const spouseRelations = relationships.filter(rel => 
-      rel.type === 'spouse' && (rel.person1_id === rootPerson.id || rel.person2_id === rootPerson.id)
-    );
-    
-    spouseRelations.forEach((rel, index) => {
-      const spouseId = rel.person1_id === rootPerson.id ? rel.person2_id : rel.person1_id;
-      const spouse = individualsMap.get(spouseId);
-      if (spouse) {
-        addPersonNode(spouse, 600, 300, 0);
-        newEdges.push({
-          id: `spouse-${rel.id}`,
-          source: rootPerson.id.toString(),
-          target: spouse.id.toString(),
-          type: 'straight',
-          label: '配偶',
-          style: { stroke: '#f59e0b' },
-        });
-      }
-    });
+        labelStyle: { 
+          fontSize: 12,
+          fontWeight: 'bold'
+        }
+      }));
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [individuals, relationships, setNodes, setEdges]);
-
-  const handlePersonSelect = (person: Individual) => {
-    setSelectedPerson(person);
-    buildFamilyTree(person);
   };
 
   const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
@@ -212,11 +191,7 @@ const Tree = () => {
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges],
-  );
-
-  const filteredIndividuals = individuals.filter(person =>
-    person.full_name.toLowerCase().includes(searchTerm.toLowerCase())
+    [setEdges]
   );
 
   if (loading) {
@@ -247,124 +222,119 @@ const Tree = () => {
               <Button variant="ghost" onClick={() => navigate("/stats")}>
                 统计分析
               </Button>
+              <Button variant="ghost" onClick={() => navigate("/relationships")}>
+                关系管理
+              </Button>
+              <Button variant="ghost" onClick={() => navigate("/events")}>
+                事件管理
+              </Button>
+              <Button variant="ghost" onClick={() => navigate("/settings")}>
+                设置
+              </Button>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">互动族谱图</h1>
-          <p className="text-gray-600">搜索并选择根节点来探索家族关系</p>
+      <div className="flex h-[calc(100vh-4rem)]">
+        {/* 左侧控制面板 */}
+        <div className="w-80 bg-white shadow-lg p-6 overflow-y-auto">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">互动族谱图</h2>
+            
+            {/* 家族筛选 */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                筛选家族
+              </label>
+              <Select value={familyFilter} onValueChange={setFamilyFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择家族" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部家族</SelectItem>
+                  {familyNames.map(name => (
+                    <SelectItem key={name} value={name}>
+                      {name}氏家族
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 统计信息 */}
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <h3 className="font-semibold mb-2">当前显示</h3>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>成员数量:</span>
+                  <span>{nodes.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>关系连接:</span>
+                  <span>{edges.length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 选中节点详情 */}
+          {selectedNodeData && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">成员详情</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div><strong>姓名:</strong> {selectedNodeData.full_name}</div>
+                  <div><strong>性别:</strong> {selectedNodeData.gender === 'male' ? '男' : '女'}</div>
+                  <div><strong>出生日期:</strong> {new Date(selectedNodeData.birth_date).toLocaleDateString('zh-CN')}</div>
+                  <div><strong>出生地:</strong> {selectedNodeData.birth_place}</div>
+                  {selectedNodeData.death_date && (
+                    <div><strong>逝世日期:</strong> {new Date(selectedNodeData.death_date).toLocaleDateString('zh-CN')}</div>
+                  )}
+                  {selectedNodeData.residence && (
+                    <div><strong>居住地:</strong> {selectedNodeData.residence}</div>
+                  )}
+                </div>
+                <Button 
+                  className="w-full mt-4" 
+                  size="sm"
+                  onClick={() => navigate(`/member/${selectedNodeData.id}`)}
+                >
+                  查看完整档案
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* 搜索区域 */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Search className="h-5 w-5" />
-              <span>选择根节点</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col space-y-4">
-              <Input
-                placeholder="搜索家族成员..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
-              {searchTerm && (
-                <div className="max-h-40 overflow-y-auto border rounded-md">
-                  {filteredIndividuals.slice(0, 10).map((person) => (
-                    <div
-                      key={person.id}
-                      className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                      onClick={() => handlePersonSelect(person)}
-                    >
-                      <div className="font-medium">{person.full_name}</div>
-                      <div className="text-sm text-gray-500">
-                        {person.birth_date ? new Date(person.birth_date).getFullYear() : '未知年份'}
-                        {person.birth_place && ` • ${person.birth_place}`}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 族谱图 */}
-        <Card>
-          <CardContent className="p-0">
-            <div style={{ width: '100%', height: '600px' }}>
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onNodeClick={handleNodeClick}
-                fitView
-                attributionPosition="top-right"
-              >
-                <MiniMap />
-                <Controls />
-                <Background />
-              </ReactFlow>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 详情面板 */}
-        {selectedNodeData && (
-          <Sheet open={!!selectedNodeData} onOpenChange={() => setSelectedNodeData(null)}>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>{selectedNodeData.full_name}</SheetTitle>
-              </SheetHeader>
-              <div className="mt-6 space-y-4">
-                <div>
-                  <h4 className="font-medium text-gray-900">基本信息</h4>
-                  <div className="mt-2 space-y-2 text-sm">
-                    <div><span className="font-medium">性别:</span> {selectedNodeData.gender === 'male' ? '男' : '女'}</div>
-                    <div>
-                      <span className="font-medium">出生:</span> 
-                      {selectedNodeData.birth_date ? new Date(selectedNodeData.birth_date).toLocaleDateString('zh-CN') : '未知'}
-                      {selectedNodeData.birth_place && ` (${selectedNodeData.birth_place})`}
-                    </div>
-                    {selectedNodeData.death_date && (
-                      <div>
-                        <span className="font-medium">逝世:</span> 
-                        {new Date(selectedNodeData.death_date).toLocaleDateString('zh-CN')}
-                        {selectedNodeData.death_place && ` (${selectedNodeData.death_place})`}
-                      </div>
-                    )}
-                    {selectedNodeData.occupation && (
-                      <div><span className="font-medium">职业:</span> {selectedNodeData.occupation}</div>
-                    )}
-                    {selectedNodeData.education && (
-                      <div><span className="font-medium">教育:</span> {selectedNodeData.education}</div>
-                    )}
-                  </div>
-                </div>
-                {selectedNodeData.notes && (
-                  <div>
-                    <h4 className="font-medium text-gray-900">备注</h4>
-                    <p className="mt-2 text-sm text-gray-600">{selectedNodeData.notes}</p>
-                  </div>
-                )}
-                <Button 
-                  onClick={() => navigate(`/member/${selectedNodeData.id}`)}
-                  className="w-full"
-                >
-                  查看详细信息
-                </Button>
+        {/* 右侧族谱图 */}
+        <div className="flex-1 relative">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeClick={handleNodeClick}
+            connectionMode={ConnectionMode.Loose}
+            fitView
+            className="bg-gray-50"
+          >
+            <Background />
+            <MiniMap 
+              nodeColor={(node) => node.style?.background || '#ddd'}
+              className="bg-white"
+            />
+            <Controls />
+            <Panel position="top-right" className="bg-white p-2 rounded shadow">
+              <div className="text-xs text-gray-600">
+                点击节点查看详情 | 拖拽移动视图 | 滚轮缩放
               </div>
-            </SheetContent>
-          </Sheet>
-        )}
+            </Panel>
+          </ReactFlow>
+        </div>
       </div>
     </div>
   );

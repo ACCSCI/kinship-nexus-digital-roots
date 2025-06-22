@@ -8,20 +8,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { TreePine, Users } from "lucide-react";
 
+// Match the actual database schema
 interface Individual {
   id: number;
   full_name: string;
   gender: string;
-  birth_date: string | null;
-  birth_place: string | null;
+  birth_date: string;
+  birth_place: string;
   death_date: string | null;
-  death_place: string | null;
-  occupation: string | null;
-  education: string | null;
-  notes: string | null;
+  residence: string | null;
   biography: string | null;
   photo_path: string | null;
-  residence: string | null;
   created_at: string;
 }
 
@@ -127,6 +124,15 @@ const Branches = () => {
               <Button variant="ghost" onClick={() => navigate("/stats")}>
                 统计分析
               </Button>
+              <Button variant="ghost" onClick={() => navigate("/relationships")}>
+                关系管理
+              </Button>
+              <Button variant="ghost" onClick={() => navigate("/events")}>
+                事件管理
+              </Button>
+              <Button variant="ghost" onClick={() => navigate("/settings")}>
+                设置
+              </Button>
             </div>
           </div>
         </div>
@@ -185,7 +191,6 @@ const Branches = () => {
                         <TableHead>性别</TableHead>
                         <TableHead>出生日期</TableHead>
                         <TableHead>出生地</TableHead>
-                        <TableHead>职业</TableHead>
                         <TableHead>操作</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -202,7 +207,6 @@ const Branches = () => {
                             {member.birth_date ? new Date(member.birth_date).toLocaleDateString('zh-CN') : '-'}
                           </TableCell>
                           <TableCell>{member.birth_place || '-'}</TableCell>
-                          <TableCell>{member.occupation || '-'}</TableCell>
                           <TableCell>
                             <Button 
                               variant="outline" 

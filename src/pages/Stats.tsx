@@ -106,14 +106,28 @@ const Stats = () => {
 
     setDecadeData(sortedDecades);
 
-    // 处理性别分布数据
-    const maleCount = data.filter(p => p.gender === 'male').length;
-    const femaleCount = data.filter(p => p.gender === 'female').length;
+    // 处理性别分布数据 - 修复这里的逻辑
+    const genderCounts = data.reduce((acc, person) => {
+      const gender = person.gender;
+      acc[gender] = (acc[gender] || 0) + 1;
+      return acc;
+    }, {} as { [key: string]: number });
 
-    setGenderData([
-      { name: '男性', value: maleCount, color: '#3b82f6' },
-      { name: '女性', value: femaleCount, color: '#ec4899' }
-    ]);
+    const genderDisplayData = [
+      { 
+        name: '男性', 
+        value: genderCounts['male'] || 0, 
+        color: '#3b82f6' 
+      },
+      { 
+        name: '女性', 
+        value: genderCounts['female'] || 0, 
+        color: '#ec4899' 
+      }
+    ];
+
+    console.log('Gender data processed:', genderDisplayData);
+    setGenderData(genderDisplayData);
 
     // 处理成员增长数据
     const monthCounts: { [key: string]: number } = {};
@@ -196,7 +210,7 @@ const Stats = () => {
                 {individuals.filter(p => p.gender === 'male').length}
               </div>
               <p className="text-xs text-muted-foreground">
-                占总数 {((individuals.filter(p => p.gender === 'male').length / individuals.length) * 100).toFixed(1)}%
+                占总数 {individuals.length > 0 ? ((individuals.filter(p => p.gender === 'male').length / individuals.length) * 100).toFixed(1) : 0}%
               </p>
             </CardContent>
           </Card>
@@ -211,7 +225,7 @@ const Stats = () => {
                 {individuals.filter(p => p.gender === 'female').length}
               </div>
               <p className="text-xs text-muted-foreground">
-                占总数 {((individuals.filter(p => p.gender === 'female').length / individuals.length) * 100).toFixed(1)}%
+                占总数 {individuals.length > 0 ? ((individuals.filter(p => p.gender === 'female').length / individuals.length) * 100).toFixed(1) : 0}%
               </p>
             </CardContent>
           </Card>
@@ -226,7 +240,7 @@ const Stats = () => {
                 {individuals.filter(p => !p.death_date).length}
               </div>
               <p className="text-xs text-muted-foreground">
-                占总数 {((individuals.filter(p => !p.death_date).length / individuals.length) * 100).toFixed(1)}%
+                占总数 {individuals.length > 0 ? ((individuals.filter(p => !p.death_date).length / individuals.length) * 100).toFixed(1) : 0}%
               </p>
             </CardContent>
           </Card>
@@ -278,7 +292,9 @@ const Stats = () => {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, value, percent }) => 
+                      value > 0 ? `${name}: ${value}人 (${(percent * 100).toFixed(0)}%)` : null
+                    }
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -287,7 +303,9 @@ const Stats = () => {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip 
+                    formatter={(value, name) => [`${value}人`, name]}
+                  />
                 </RechartsPieChart>
               </ResponsiveContainer>
             </CardContent>

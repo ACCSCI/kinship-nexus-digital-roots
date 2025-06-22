@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -177,7 +178,7 @@ const Dashboard = () => {
               <TreePine className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{relationships.length}</div>
+              <div className="text-2xl font-bold">0</div>
               <p className="text-xs text-muted-foreground">
                 已建立的关系连接
               </p>
@@ -248,8 +249,7 @@ const Dashboard = () => {
             </CardHeader>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => setShowRelationDialog(true)}>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <Link className="h-12 w-12 text-orange-600 mb-4" />
               <CardTitle>建立关系</CardTitle>

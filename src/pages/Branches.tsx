@@ -19,6 +19,10 @@ interface Individual {
   occupation: string | null;
   education: string | null;
   notes: string | null;
+  biography: string | null;
+  photo_path: string | null;
+  residence: string | null;
+  created_at: string;
 }
 
 const Branches = () => {

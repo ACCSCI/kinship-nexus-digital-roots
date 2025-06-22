@@ -33,6 +33,10 @@ interface Individual {
   occupation: string | null;
   education: string | null;
   notes: string | null;
+  biography: string | null;
+  photo_path: string | null;
+  residence: string | null;
+  created_at: string;
 }
 
 interface Relationship {
@@ -203,7 +207,7 @@ const Tree = () => {
   };
 
   const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    setSelectedNodeData(node.data.person);
+    setSelectedNodeData(node.data.person as Individual);
   }, []);
 
   const onConnect = useCallback(

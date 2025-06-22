@@ -324,7 +324,7 @@ const Tree = () => {
           >
             <Background />
             <MiniMap 
-              nodeColor={(node) => node.style?.background || '#ddd'}
+              nodeColor={(node) => (node.style?.background as string) || '#ddd'}
               className="bg-white"
             />
             <Controls />

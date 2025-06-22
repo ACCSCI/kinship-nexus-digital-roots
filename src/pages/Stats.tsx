@@ -63,9 +63,12 @@ const Stats = () => {
   const fetchData = async () => {
     try {
       const { data, error } = await supabase
-        .from("Individual")
+        .from("individual")
         .select("*")
         .order("created_at");
+
+      console.log('Fetched data:', data);
+      console.log('Fetch error:', error);
 
       if (error) {
         toast({
@@ -78,6 +81,7 @@ const Stats = () => {
         processStatistics(data || []);
       }
     } catch (error) {
+      console.error('Fetch error:', error);
       toast({
         title: "获取数据失败",
         description: "发生未知错误",
@@ -89,6 +93,8 @@ const Stats = () => {
   };
 
   const processStatistics = (data: Individual[]) => {
+    console.log('Processing statistics for data:', data);
+    
     // 处理出生年代数据
     const decadeCounts: { [key: string]: number } = {};
     
@@ -106,27 +112,30 @@ const Stats = () => {
 
     setDecadeData(sortedDecades);
 
-    // 处理性别分布数据 - 修复这里的逻辑
-    const genderCounts = data.reduce((acc, person) => {
-      const gender = person.gender;
-      acc[gender] = (acc[gender] || 0) + 1;
-      return acc;
-    }, {} as { [key: string]: number });
+    // 处理性别分布数据 - 详细调试
+    console.log('Raw individual data for gender processing:', data.map(p => ({ id: p.id, name: p.full_name, gender: p.gender })));
+    
+    const maleCount = data.filter(p => p.gender === 'male').length;
+    const femaleCount = data.filter(p => p.gender === 'female').length;
+    
+    console.log('Male count:', maleCount);
+    console.log('Female count:', femaleCount);
+    console.log('Total count:', data.length);
 
     const genderDisplayData = [
       { 
         name: '男性', 
-        value: genderCounts['male'] || 0, 
+        value: maleCount, 
         color: '#3b82f6' 
       },
       { 
         name: '女性', 
-        value: genderCounts['female'] || 0, 
+        value: femaleCount, 
         color: '#ec4899' 
       }
     ];
 
-    console.log('Gender data processed:', genderDisplayData);
+    console.log('Final gender data for chart:', genderDisplayData);
     setGenderData(genderDisplayData);
 
     // 处理成员增长数据
@@ -285,6 +294,10 @@ const Stats = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 text-sm text-gray-600">
+                调试信息: 男性 {genderData.find(g => g.name === '男性')?.value || 0} 人, 
+                女性 {genderData.find(g => g.name === '女性')?.value || 0} 人
+              </div>
               <ResponsiveContainer width="100%" height={300}>
                 <RechartsPieChart>
                   <Pie
@@ -292,19 +305,24 @@ const Stats = () => {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, value, percent }) => 
-                      value > 0 ? `${name}: ${value}人 (${(percent * 100).toFixed(0)}%)` : null
-                    }
+                    label={({ name, value, percent }) => {
+                      console.log('Pie label data:', { name, value, percent });
+                      return value > 0 ? `${name}: ${value}人 (${(percent * 100).toFixed(0)}%)` : `${name}: 0人`;
+                    }}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {genderData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
+                    {genderData.map((entry, index) => {
+                      console.log('Rendering pie cell:', entry);
+                      return <Cell key={`cell-${index}`} fill={entry.color} />;
+                    })}
                   </Pie>
                   <Tooltip 
-                    formatter={(value, name) => [`${value}人`, name]}
+                    formatter={(value, name) => {
+                      console.log('Tooltip data:', { value, name });
+                      return [`${value}人`, name];
+                    }}
                   />
                 </RechartsPieChart>
               </ResponsiveContainer>

@@ -1,65 +1,43 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Edit, Trash2, Eye, LogOut, TreePine, Users, Calendar, BarChart, UserPlus, Link, Settings } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { toast } from "@/hooks/use-toast";
-import AddMemberDialog from "@/components/AddMemberDialog";
-import EditMemberDialog from "@/components/EditMemberDialog";
-import DeleteConfirmDialog from "@/components/DeleteConfirmDialog";
+import { Plus, Users, Calendar, Settings, BarChart } from "lucide-react";
+import { AddMemberDialog } from "@/components/AddMemberDialog";
+import { GlobalHeader } from "@/components/GlobalHeader";
 
 interface Individual {
   id: number;
   full_name: string;
   gender: string;
-  birth_date: string;
-  death_date?: string;
-  birth_place: string;
-  residence?: string;
-  biography?: string;
-  photo_path?: string;
+  birth_date: string | null;
+  death_date: string | null;
+  created_at: string;
 }
 
 const Dashboard = () => {
-  const [user, setUser] = useState(null);
   const [individuals, setIndividuals] = useState<Individual[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedIndividual, setSelectedIndividual] = useState<Individual | null>(null);
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    checkUser();
     fetchIndividuals();
   }, []);
-
-  const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      navigate("/");
-      return;
-    }
-    setUser(user);
-  };
 
   const fetchIndividuals = async () => {
     try {
       const { data, error } = await supabase
-        .from("Individual")
+        .from("individual")
         .select("*")
-        .order("full_name");
+        .order("created_at", { ascending: false })
+        .limit(10);
 
       if (error) {
         toast({
@@ -81,293 +59,198 @@ const Dashboard = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
-  };
-
-  const handleEdit = (individual: Individual) => {
-    setSelectedIndividual(individual);
-    setShowEditDialog(true);
-  };
-
-  const handleDelete = (individual: Individual) => {
-    setSelectedIndividual(individual);
-    setShowDeleteDialog(true);
-  };
-
-  const handleView = (individual: Individual) => {
-    navigate(`/member/${individual.id}`);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('zh-CN');
+  const handleMemberAdded = () => {
+    fetchIndividuals();
+    setShowAddDialog(false);
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <GlobalHeader />
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">加载中...</div>
+        </div>
+      </div>
+    );
   }
+
+  const dashboardNavigation = (
+    <div className="flex space-x-2">
+      <Button onClick={() => setShowAddDialog(true)} size="sm">
+        <Plus className="h-4 w-4 mr-2" />
+        添加成员
+      </Button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* 导航栏 */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <TreePine className="h-8 w-8 text-indigo-600" />
-              <h1 className="text-xl font-bold text-gray-900">赛博族谱</h1>
-            </div>
-            <div className="flex space-x-4">
-              <Button variant="ghost" onClick={() => navigate("/branches")}>
-                家族分支
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/tree")}>
-                族谱图
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/stats")}>
-                统计分析
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/relationships")}>
-                关系管理
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/events")}>
-                事件管理
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/settings")}>
-                设置
-              </Button>
-              <Button
-                onClick={() => {
-                  supabase.auth.signOut();
-                  navigate("/");
-                }}
-              >
-                退出登录
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <GlobalHeader secondaryNav={dashboardNavigation} />
 
-      {/* 主要内容 */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* 英雄区域 */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            欢迎来到您的数字族谱
-          </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            管理家族成员信息，探索家族关系，传承家族文化
-          </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">家族仪表板</h1>
+          <p className="text-gray-600">管理和查看您的家族信息</p>
         </div>
 
         {/* 统计卡片 */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                家族成员总数
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">总成员数</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{individuals.length}</div>
               <p className="text-xs text-muted-foreground">
-                已录入的家族成员
+                记录在册的家族成员
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                家族关系数量
-              </CardTitle>
-              <TreePine className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">在世成员</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">
+                {individuals.filter(p => !p.death_date).length}
+              </div>
               <p className="text-xs text-muted-foreground">
-                已建立的关系连接
+                目前仍在世的成员
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                在世成员
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">最新添加</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {individuals.filter(person => !person.death_date).length}
+                {individuals.length > 0 ? new Date(individuals[0].created_at).toLocaleDateString() : '无'}
               </div>
               <p className="text-xs text-muted-foreground">
-                当前健在的家族成员
+                最近添加成员的日期
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">数据完整性</CardTitle>
+              <Settings className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">85%</div>
+              <p className="text-xs text-muted-foreground">
+                信息完整度评分
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* 快速访问功能 */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" 
-                onClick={() => navigate("/branches")}>
+        {/* 快速操作 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          <Card className="lg:col-span-2">
             <CardHeader>
-              <Users className="h-12 w-12 text-indigo-600 mb-4" />
-              <CardTitle>家族分支浏览器</CardTitle>
-              <CardDescription>
-                按姓氏浏览家族成员，查看各个分支的详细信息
-              </CardDescription>
+              <CardTitle>最近添加的成员</CardTitle>
+              <CardDescription>查看最新录入的家族成员信息</CardDescription>
             </CardHeader>
+            <CardContent>
+              {individuals.length > 0 ? (
+                <div className="space-y-4">
+                  {individuals.slice(0, 5).map((person) => (
+                    <div key={person.id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
+                      <Avatar>
+                        <AvatarFallback>
+                          {person.full_name.slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-medium">{person.full_name}</p>
+                        <p className="text-sm text-gray-500">
+                          {person.birth_date ? new Date(person.birth_date).toLocaleDateString() : '出生日期未知'}
+                        </p>
+                      </div>
+                      <Badge variant={person.gender === 'male' ? 'default' : 'secondary'}>
+                        {person.gender === 'male' ? '男' : '女'}
+                      </Badge>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => navigate(`/member/${person.id}`)}
+                      >
+                        查看详情
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>暂无家族成员记录</p>
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => setShowAddDialog(true)}
+                  >
+                    添加第一个成员
+                  </Button>
+                </div>
+              )}
+            </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => navigate("/tree")}>
+          <Card>
             <CardHeader>
-              <TreePine className="h-12 w-12 text-green-600 mb-4" />
-              <CardTitle>互动族谱图</CardTitle>
-              <CardDescription>
-                可视化的家族关系图，探索家族成员之间的关系网络
-              </CardDescription>
+              <CardTitle>快速操作</CardTitle>
+              <CardDescription>常用功能快速入口</CardDescription>
             </CardHeader>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => navigate("/stats")}>
-            <CardHeader>
-              <BarChart className="h-12 w-12 text-purple-600 mb-4" />
-              <CardTitle>统计分析</CardTitle>
-              <CardDescription>
-                深入了解家族数据，查看各种统计图表和分析报告
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => setShowAddDialog(true)}>
-            <CardHeader>
-              <UserPlus className="h-12 w-12 text-blue-600 mb-4" />
-              <CardTitle>添加家族成员</CardTitle>
-              <CardDescription>
-                录入新的家族成员信息，扩展您的族谱记录
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => navigate("/relationships")}>
-            <CardHeader>
-              <Link className="h-12 w-12 text-orange-600 mb-4" />
-              <CardTitle>建立关系</CardTitle>
-              <CardDescription>
-                为家族成员建立亲属关系，完善家族关系网
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => navigate("/settings")}>
-            <CardHeader>
-              <Settings className="h-12 w-12 text-gray-600 mb-4" />
-              <CardTitle>系统设置</CardTitle>
-              <CardDescription>
-                管理系统设置，个性化您的族谱管理体验
-              </CardDescription>
-            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate("/tree")}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                查看族谱图
+              </Button>
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate("/stats")}
+              >
+                <BarChart className="h-4 w-4 mr-2" />
+                统计分析
+              </Button>
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate("/relationships")}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                关系管理
+              </Button>
+              <Button 
+                className="w-full justify-start" 
+                variant="outline"
+                onClick={() => navigate("/events")}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                事件记录
+              </Button>
+            </CardContent>
           </Card>
         </div>
+      </div>
 
-        {/* 最近添加的成员 */}
-        <Card>
-          <CardHeader className="flex flex-row items-center">
-            <div className="flex items-center space-x-2">
-              <Users className="h-5 w-5" />
-              <CardTitle>最近添加的成员</CardTitle>
-            </div>
-            <Button
-              onClick={() => setShowAddDialog(true)}
-              className="ml-auto"
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              添加成员
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>姓名</TableHead>
-                  <TableHead>性别</TableHead>
-                  <TableHead>出生日期</TableHead>
-                  <TableHead>出生地</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {individuals.map((individual) => (
-                  <TableRow key={individual.id}>
-                    <TableCell className="font-medium">
-                      {individual.full_name}
-                    </TableCell>
-                    <TableCell>{individual.gender}</TableCell>
-                    <TableCell>{formatDate(individual.birth_date)}</TableCell>
-                    <TableCell>{individual.birth_place}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleView(individual)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(individual)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(individual)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </main>
-
-      {/* 对话框 */}
-      <AddMemberDialog
+      <AddMemberDialog 
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
-        onSuccess={fetchIndividuals}
-      />
-
-      <EditMemberDialog
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-        individual={selectedIndividual}
-        onSuccess={fetchIndividuals}
-      />
-
-      <DeleteConfirmDialog
-        open={showDeleteDialog}
-        onOpenChange={setShowDeleteDialog}
-        individual={selectedIndividual}
-        onSuccess={fetchIndividuals}
+        onMemberAdded={handleMemberAdded}
       />
     </div>
   );

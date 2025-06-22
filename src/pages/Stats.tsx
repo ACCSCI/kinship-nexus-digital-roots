@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { TreePine, BarChart, PieChart, LineChart } from "lucide-react";
+import { GlobalHeader } from "@/components/GlobalHeader";
 import {
   BarChart as RechartsBarChart,
   Bar,
@@ -62,26 +63,46 @@ const Stats = () => {
 
   const fetchData = async () => {
     try {
+      console.log('Starting data fetch from individual table...');
+      
       const { data, error } = await supabase
         .from("individual")
         .select("*")
         .order("created_at");
 
-      console.log('Fetched data:', data);
-      console.log('Fetch error:', error);
+      console.log('Raw data from Supabase:', data);
+      console.log('Supabase error:', error);
+      console.log('Data length:', data?.length || 0);
 
       if (error) {
+        console.error('Supabase query error:', error);
         toast({
           title: "获取数据失败",
           description: error.message,
           variant: "destructive"
         });
+      } else if (!data || data.length === 0) {
+        console.warn('No data returned from individual table');
+        toast({
+          title: "暂无数据",
+          description: "数据库中暂无家族成员记录",
+          variant: "destructive"
+        });
+        setIndividuals([]);
+        // Set empty data for charts
+        setDecadeData([]);
+        setGenderData([
+          { name: '男性', value: 0, color: '#3b82f6' },
+          { name: '女性', value: 0, color: '#ec4899' }
+        ]);
+        setGrowthData([]);
       } else {
-        setIndividuals(data || []);
-        processStatistics(data || []);
+        console.log('Successfully fetched data, processing statistics...');
+        setIndividuals(data);
+        processStatistics(data);
       }
     } catch (error) {
-      console.error('Fetch error:', error);
+      console.error('Unexpected error during data fetch:', error);
       toast({
         title: "获取数据失败",
         description: "发生未知错误",
@@ -93,58 +114,89 @@ const Stats = () => {
   };
 
   const processStatistics = (data: Individual[]) => {
-    console.log('Processing statistics for data:', data);
+    console.log('=== PROCESSING STATISTICS ===');
+    console.log('Total individuals to process:', data.length);
+    console.log('Sample individual data:', data.slice(0, 3));
     
     // 处理出生年代数据
+    console.log('--- Processing Decade Data ---');
     const decadeCounts: { [key: string]: number } = {};
+    let validBirthDates = 0;
     
-    data.forEach(person => {
+    data.forEach((person, index) => {
+      console.log(`Processing person ${index + 1}: ${person.full_name}, birth_date: ${person.birth_date}`);
+      
       if (person.birth_date) {
         const year = new Date(person.birth_date).getFullYear();
         const decade = `${Math.floor(year / 10) * 10}年代`;
         decadeCounts[decade] = (decadeCounts[decade] || 0) + 1;
+        validBirthDates++;
+        console.log(`  -> Year: ${year}, Decade: ${decade}, Current count: ${decadeCounts[decade]}`);
+      } else {
+        console.log(`  -> No birth date for ${person.full_name}`);
       }
     });
+
+    console.log('Final decade counts:', decadeCounts);
+    console.log('Valid birth dates processed:', validBirthDates);
 
     const sortedDecades = Object.entries(decadeCounts)
       .map(([decade, count]) => ({ decade, count }))
       .sort((a, b) => a.decade.localeCompare(b.decade));
 
+    console.log('Sorted decade data for chart:', sortedDecades);
     setDecadeData(sortedDecades);
 
-    // 处理性别分布数据 - 详细调试
-    console.log('Raw individual data for gender processing:', data.map(p => ({ id: p.id, name: p.full_name, gender: p.gender })));
+    // 处理性别分布数据
+    console.log('--- Processing Gender Data ---');
+    const genderCounts = { male: 0, female: 0, other: 0 };
     
-    const maleCount = data.filter(p => p.gender === 'male').length;
-    const femaleCount = data.filter(p => p.gender === 'female').length;
-    
-    console.log('Male count:', maleCount);
-    console.log('Female count:', femaleCount);
-    console.log('Total count:', data.length);
+    data.forEach((person, index) => {
+      console.log(`Processing person ${index + 1}: ${person.full_name}, gender: "${person.gender}"`);
+      
+      if (person.gender === 'male') {
+        genderCounts.male++;
+      } else if (person.gender === 'female') {
+        genderCounts.female++;
+      } else {
+        genderCounts.other++;
+        console.log(`  -> Unexpected gender value: "${person.gender}"`);
+      }
+    });
+
+    console.log('Final gender counts:', genderCounts);
 
     const genderDisplayData = [
       { 
         name: '男性', 
-        value: maleCount, 
+        value: genderCounts.male, 
         color: '#3b82f6' 
       },
       { 
         name: '女性', 
-        value: femaleCount, 
+        value: genderCounts.female, 
         color: '#ec4899' 
       }
     ];
 
-    console.log('Final gender data for chart:', genderDisplayData);
+    // Only include gender categories that have data
+    const filteredGenderData = genderDisplayData.filter(item => item.value > 0);
+    
+    console.log('Gender data for chart (filtered):', filteredGenderData);
+    console.log('Gender data for chart (all):', genderDisplayData);
+    
+    // Use all data even if some values are 0 for consistent chart display
     setGenderData(genderDisplayData);
 
     // 处理成员增长数据
+    console.log('--- Processing Growth Data ---');
     const monthCounts: { [key: string]: number } = {};
     
     data.forEach(person => {
       const date = new Date(person.created_at);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+      console.log(`Growth data: ${person.full_name} added in ${monthKey}`);
     });
 
     const sortedGrowth = Object.entries(monthCounts)
@@ -152,46 +204,50 @@ const Stats = () => {
       .sort((a, b) => a.month.localeCompare(b.month))
       .slice(-12); // 只显示最近12个月
 
+    console.log('Growth data for chart:', sortedGrowth);
     setGrowthData(sortedGrowth);
+    
+    console.log('=== STATISTICS PROCESSING COMPLETE ===');
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-lg">加载中...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <GlobalHeader />
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">加载中...</div>
+        </div>
       </div>
     );
   }
 
+  const statsNavigation = (
+    <div className="flex space-x-4">
+      <Button variant="ghost" onClick={() => window.location.reload()}>
+        刷新数据
+      </Button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* 导航栏 */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <TreePine className="h-8 w-8 text-indigo-600" />
-              <h1 className="text-xl font-bold text-gray-900">赛博族谱</h1>
-            </div>
-            <div className="flex space-x-4">
-              <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-                仪表板
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/branches")}>
-                家族分支
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/tree")}>
-                族谱图
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <GlobalHeader secondaryNav={statsNavigation} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">族谱统计分析</h1>
           <p className="text-gray-600">深入了解您的家族数据</p>
+          
+          {/* Debug Information */}
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h3 className="text-sm font-medium text-yellow-800 mb-2">调试信息:</h3>
+            <div className="text-sm text-yellow-700 space-y-1">
+              <p>总成员数: {individuals.length}</p>
+              <p>年代数据点: {decadeData.length}</p>
+              <p>性别数据: 男性 {genderData.find(g => g.name === '男性')?.value || 0} 人, 女性 {genderData.find(g => g.name === '女性')?.value || 0} 人</p>
+              <p>增长数据点: {growthData.length}</p>
+            </div>
+          </div>
         </div>
 
         {/* 统计概览 */}
@@ -269,16 +325,22 @@ const Stats = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsBarChart data={decadeData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="decade" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#3b82f6" name="人数" />
-                </RechartsBarChart>
-              </ResponsiveContainer>
+              {decadeData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsBarChart data={decadeData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="decade" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="count" fill="#3b82f6" name="人数" />
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-gray-500">
+                  暂无年代分布数据
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -294,38 +356,41 @@ const Stats = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 text-sm text-gray-600">
-                调试信息: 男性 {genderData.find(g => g.name === '男性')?.value || 0} 人, 
-                女性 {genderData.find(g => g.name === '女性')?.value || 0} 人
-              </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsPieChart>
-                  <Pie
-                    data={genderData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value, percent }) => {
-                      console.log('Pie label data:', { name, value, percent });
-                      return value > 0 ? `${name}: ${value}人 (${(percent * 100).toFixed(0)}%)` : `${name}: 0人`;
-                    }}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {genderData.map((entry, index) => {
-                      console.log('Rendering pie cell:', entry);
-                      return <Cell key={`cell-${index}`} fill={entry.color} />;
-                    })}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value, name) => {
-                      console.log('Tooltip data:', { value, name });
-                      return [`${value}人`, name];
-                    }}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+              {genderData.some(item => item.value > 0) ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={genderData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value, percent }) => {
+                        console.log('Pie chart label rendering:', { name, value, percent });
+                        return value > 0 ? `${name}: ${value}人 (${(percent * 100).toFixed(0)}%)` : null;
+                      }}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {genderData.map((entry, index) => {
+                        console.log('Rendering pie cell:', entry, index);
+                        return <Cell key={`cell-${index}`} fill={entry.color} />;
+                      })}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value, name) => {
+                        console.log('Pie chart tooltip:', { value, name });
+                        return [`${value}人`, name];
+                      }}
+                    />
+                    <Legend />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-gray-500">
+                  暂无性别分布数据
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -341,22 +406,28 @@ const Stats = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsLineChart data={growthData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="count" 
-                    stroke="#10b981" 
-                    strokeWidth={2}
-                    name="新增成员数"
-                  />
-                </RechartsLineChart>
-              </ResponsiveContainer>
+              {growthData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsLineChart data={growthData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="count" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      name="新增成员数"
+                    />
+                  </RechartsLineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-gray-500">
+                  暂无增长趋势数据
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

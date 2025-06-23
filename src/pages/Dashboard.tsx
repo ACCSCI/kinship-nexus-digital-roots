@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,30 +35,13 @@ const Dashboard = () => {
       console.log('仪表盘：开始获取个人数据...');
       setLoading(true);
       
-      // 尝试查询两个可能的表名
-      console.log('尝试查询 Individual 表（大写）...');
-      let { data: individualData, error: individualError } = await supabase
+      console.log('查询 Individual 表...');
+      const { data: individualData, error: individualError } = await supabase
         .from("Individual")
         .select("*")
         .order("created_at", { ascending: false });
 
       console.log('Individual表查询结果:', { data: individualData, error: individualError });
-
-      // 如果Individual表查询失败，尝试individual表（小写）
-      if (individualError || !individualData || individualData.length === 0) {
-        console.log('尝试查询 individual 表（小写）...');
-        const { data: individualLowerData, error: individualLowerError } = await supabase
-          .from("individual")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        console.log('individual表查询结果:', { data: individualLowerData, error: individualLowerError });
-
-        if (!individualLowerError && individualLowerData) {
-          individualData = individualLowerData;
-          individualError = null;
-        }
-      }
 
       if (individualError) {
         console.error('仪表盘：数据库查询错误:', individualError);

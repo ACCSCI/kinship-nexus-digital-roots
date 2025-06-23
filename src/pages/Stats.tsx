@@ -65,30 +65,13 @@ const Stats = () => {
       console.log('统计页面：开始获取数据...');
       setLoading(true);
       
-      // 尝试查询两个可能的表名
-      console.log('统计页面：尝试查询 Individual 表（大写）...');
-      let { data: individualData, error: individualError } = await supabase
+      console.log('统计页面：查询 Individual 表...');
+      const { data: individualData, error: individualError } = await supabase
         .from("Individual")
         .select("*")
         .order("created_at");
 
       console.log('统计页面：Individual表查询结果:', { data: individualData, error: individualError });
-
-      // 如果Individual表查询失败，尝试individual表（小写）
-      if (individualError || !individualData || individualData.length === 0) {
-        console.log('统计页面：尝试查询 individual 表（小写）...');
-        const { data: individualLowerData, error: individualLowerError } = await supabase
-          .from("individual")
-          .select("*")
-          .order("created_at");
-
-        console.log('统计页面：individual表查询结果:', { data: individualLowerData, error: individualLowerError });
-
-        if (!individualLowerError && individualLowerData) {
-          individualData = individualLowerData;
-          individualError = null;
-        }
-      }
 
       if (individualError) {
         console.error('统计页面：数据库查询错误:', individualError);

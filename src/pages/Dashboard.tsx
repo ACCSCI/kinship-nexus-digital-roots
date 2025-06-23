@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Plus, Users, Calendar, Settings, BarChart } from "lucide-react";
-import { AddMemberDialog } from "@/components/AddMemberDialog";
+import AddMemberDialog from "@/components/AddMemberDialog";
 import { GlobalHeader } from "@/components/GlobalHeader";
 
 interface Individual {

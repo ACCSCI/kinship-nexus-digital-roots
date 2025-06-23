@@ -153,20 +153,23 @@ const Stats = () => {
     console.log('排序后的年代数据:', sortedDecades);
     setDecadeData(sortedDecades);
 
-    // 处理性别分布数据
+    // 处理性别分布数据 - 修复中文性别识别
     console.log('--- 处理性别数据 ---');
     const genderCounts = { male: 0, female: 0, other: 0 };
     
     data.forEach((person, index) => {
       console.log(`处理第 ${index + 1} 个人: ${person.full_name}, 性别: "${person.gender}"`);
       
-      if (person.gender === 'male') {
+      // 支持中文和英文性别值
+      if (person.gender === 'male' || person.gender === '男') {
         genderCounts.male++;
-      } else if (person.gender === 'female') {
+        console.log(`  -> 识别为男性，当前男性计数: ${genderCounts.male}`);
+      } else if (person.gender === 'female' || person.gender === '女') {
         genderCounts.female++;
+        console.log(`  -> 识别为女性，当前女性计数: ${genderCounts.female}`);
       } else {
         genderCounts.other++;
-        console.log(`  -> 意外的性别值: "${person.gender}"`);
+        console.log(`  -> 未识别的性别值: "${person.gender}"`);
       }
     });
 

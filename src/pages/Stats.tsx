@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,50 +65,76 @@ const Stats = () => {
       console.log('统计页面：开始获取数据...');
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from("individual")
+      // 尝试查询两个可能的表名
+      console.log('统计页面：尝试查询 Individual 表（大写）...');
+      let { data: individualData, error: individualError } = await supabase
+        .from("Individual")
         .select("*")
         .order("created_at");
 
-      console.log('统计页面：数据库查询结果:', { data, error, length: data?.length });
+      console.log('统计页面：Individual表查询结果:', { data: individualData, error: individualError });
 
-      if (error) {
-        console.error('统计页面：数据库查询错误:', error);
+      // 如果Individual表查询失败，尝试individual表（小写）
+      if (individualError || !individualData || individualData.length === 0) {
+        console.log('统计页面：尝试查询 individual 表（小写）...');
+        const { data: individualLowerData, error: individualLowerError } = await supabase
+          .from("individual")
+          .select("*")
+          .order("created_at");
+
+        console.log('统计页面：individual表查询结果:', { data: individualLowerData, error: individualLowerError });
+
+        if (!individualLowerError && individualLowerData) {
+          individualData = individualLowerData;
+          individualError = null;
+        }
+      }
+
+      if (individualError) {
+        console.error('统计页面：数据库查询错误:', individualError);
         toast({
           title: "获取数据失败",
-          description: error.message,
-          variant: "destructive"
-        });
-      } else if (!data || data.length === 0) {
-        console.warn('统计页面：数据库返回空数据');
-        toast({
-          title: "暂无数据",
-          description: "数据库中暂无家族成员记录",
+          description: `数据库错误: ${individualError.message}`,
           variant: "destructive"
         });
         setIndividuals([]);
-        // Set empty data for charts
-        setDecadeData([]);
-        setGenderData([
-          { name: '男性', value: 0, color: '#3b82f6' },
-          { name: '女性', value: 0, color: '#ec4899' }
-        ]);
-        setGrowthData([]);
+        setEmptyChartData();
+      } else if (!individualData || individualData.length === 0) {
+        console.warn('统计页面：数据库中没有找到任何记录');
+        toast({
+          title: "暂无数据",
+          description: "数据库中暂无家族成员记录，请先添加成员",
+          variant: "default"
+        });
+        setIndividuals([]);
+        setEmptyChartData();
       } else {
         console.log('统计页面：成功获取数据，开始处理统计信息...');
-        setIndividuals(data);
-        processStatistics(data);
+        console.log('统计页面：数据详情:', individualData);
+        setIndividuals(individualData);
+        processStatistics(individualData);
       }
     } catch (error) {
       console.error('统计页面：获取数据时发生异常:', error);
       toast({
         title: "获取数据失败",
-        description: "发生未知错误",
+        description: "发生未知错误，请检查网络连接",
         variant: "destructive"
       });
+      setIndividuals([]);
+      setEmptyChartData();
     } finally {
       setLoading(false);
     }
+  };
+
+  const setEmptyChartData = () => {
+    setDecadeData([]);
+    setGenderData([
+      { name: '男性', value: 0, color: '#3b82f6' },
+      { name: '女性', value: 0, color: '#ec4899' }
+    ]);
+    setGrowthData([]);
   };
 
   const processStatistics = (data: Individual[]) => {

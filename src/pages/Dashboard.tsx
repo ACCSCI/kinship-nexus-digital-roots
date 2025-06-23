@@ -250,7 +250,7 @@ const Dashboard = () => {
       <AddMemberDialog 
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
-        onMemberAdded={handleMemberAdded}
+        onSuccess={handleMemberAdded}
       />
     </div>
   );

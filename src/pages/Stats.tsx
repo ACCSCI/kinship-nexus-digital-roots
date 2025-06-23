@@ -63,26 +63,25 @@ const Stats = () => {
 
   const fetchData = async () => {
     try {
-      console.log('Starting data fetch from individual table...');
+      console.log('统计页面：开始获取数据...');
+      setLoading(true);
       
       const { data, error } = await supabase
         .from("individual")
         .select("*")
         .order("created_at");
 
-      console.log('Raw data from Supabase:', data);
-      console.log('Supabase error:', error);
-      console.log('Data length:', data?.length || 0);
+      console.log('统计页面：数据库查询结果:', { data, error, length: data?.length });
 
       if (error) {
-        console.error('Supabase query error:', error);
+        console.error('统计页面：数据库查询错误:', error);
         toast({
           title: "获取数据失败",
           description: error.message,
           variant: "destructive"
         });
       } else if (!data || data.length === 0) {
-        console.warn('No data returned from individual table');
+        console.warn('统计页面：数据库返回空数据');
         toast({
           title: "暂无数据",
           description: "数据库中暂无家族成员记录",
@@ -97,12 +96,12 @@ const Stats = () => {
         ]);
         setGrowthData([]);
       } else {
-        console.log('Successfully fetched data, processing statistics...');
+        console.log('统计页面：成功获取数据，开始处理统计信息...');
         setIndividuals(data);
         processStatistics(data);
       }
     } catch (error) {
-      console.error('Unexpected error during data fetch:', error);
+      console.error('统计页面：获取数据时发生异常:', error);
       toast({
         title: "获取数据失败",
         description: "发生未知错误",
@@ -114,45 +113,44 @@ const Stats = () => {
   };
 
   const processStatistics = (data: Individual[]) => {
-    console.log('=== PROCESSING STATISTICS ===');
-    console.log('Total individuals to process:', data.length);
-    console.log('Sample individual data:', data.slice(0, 3));
+    console.log('=== 开始处理统计数据 ===');
+    console.log('待处理的个人数据总数:', data.length);
     
     // 处理出生年代数据
-    console.log('--- Processing Decade Data ---');
+    console.log('--- 处理年代数据 ---');
     const decadeCounts: { [key: string]: number } = {};
     let validBirthDates = 0;
     
     data.forEach((person, index) => {
-      console.log(`Processing person ${index + 1}: ${person.full_name}, birth_date: ${person.birth_date}`);
+      console.log(`处理第 ${index + 1} 个人: ${person.full_name}, 出生日期: ${person.birth_date}`);
       
       if (person.birth_date) {
         const year = new Date(person.birth_date).getFullYear();
         const decade = `${Math.floor(year / 10) * 10}年代`;
         decadeCounts[decade] = (decadeCounts[decade] || 0) + 1;
         validBirthDates++;
-        console.log(`  -> Year: ${year}, Decade: ${decade}, Current count: ${decadeCounts[decade]}`);
+        console.log(`  -> 年份: ${year}, 年代: ${decade}, 当前计数: ${decadeCounts[decade]}`);
       } else {
-        console.log(`  -> No birth date for ${person.full_name}`);
+        console.log(`  -> ${person.full_name} 无出生日期`);
       }
     });
 
-    console.log('Final decade counts:', decadeCounts);
-    console.log('Valid birth dates processed:', validBirthDates);
+    console.log('最终年代统计:', decadeCounts);
+    console.log('有效出生日期数量:', validBirthDates);
 
     const sortedDecades = Object.entries(decadeCounts)
       .map(([decade, count]) => ({ decade, count }))
       .sort((a, b) => a.decade.localeCompare(b.decade));
 
-    console.log('Sorted decade data for chart:', sortedDecades);
+    console.log('排序后的年代数据:', sortedDecades);
     setDecadeData(sortedDecades);
 
     // 处理性别分布数据
-    console.log('--- Processing Gender Data ---');
+    console.log('--- 处理性别数据 ---');
     const genderCounts = { male: 0, female: 0, other: 0 };
     
     data.forEach((person, index) => {
-      console.log(`Processing person ${index + 1}: ${person.full_name}, gender: "${person.gender}"`);
+      console.log(`处理第 ${index + 1} 个人: ${person.full_name}, 性别: "${person.gender}"`);
       
       if (person.gender === 'male') {
         genderCounts.male++;
@@ -160,11 +158,11 @@ const Stats = () => {
         genderCounts.female++;
       } else {
         genderCounts.other++;
-        console.log(`  -> Unexpected gender value: "${person.gender}"`);
+        console.log(`  -> 意外的性别值: "${person.gender}"`);
       }
     });
 
-    console.log('Final gender counts:', genderCounts);
+    console.log('最终性别统计:', genderCounts);
 
     const genderDisplayData = [
       { 
@@ -179,24 +177,18 @@ const Stats = () => {
       }
     ];
 
-    // Only include gender categories that have data
-    const filteredGenderData = genderDisplayData.filter(item => item.value > 0);
-    
-    console.log('Gender data for chart (filtered):', filteredGenderData);
-    console.log('Gender data for chart (all):', genderDisplayData);
-    
-    // Use all data even if some values are 0 for consistent chart display
+    console.log('性别图表数据:', genderDisplayData);
     setGenderData(genderDisplayData);
 
     // 处理成员增长数据
-    console.log('--- Processing Growth Data ---');
+    console.log('--- 处理增长数据 ---');
     const monthCounts: { [key: string]: number } = {};
     
     data.forEach(person => {
       const date = new Date(person.created_at);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
-      console.log(`Growth data: ${person.full_name} added in ${monthKey}`);
+      console.log(`增长数据: ${person.full_name} 添加于 ${monthKey}`);
     });
 
     const sortedGrowth = Object.entries(monthCounts)
@@ -204,16 +196,16 @@ const Stats = () => {
       .sort((a, b) => a.month.localeCompare(b.month))
       .slice(-12); // 只显示最近12个月
 
-    console.log('Growth data for chart:', sortedGrowth);
+    console.log('增长图表数据:', sortedGrowth);
     setGrowthData(sortedGrowth);
     
-    console.log('=== STATISTICS PROCESSING COMPLETE ===');
+    console.log('=== 统计数据处理完成 ===');
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <GlobalHeader />
+        <GlobalHeader onRefresh={fetchData} showRefresh={true} />
         <div className="flex items-center justify-center h-64">
           <div className="text-lg">加载中...</div>
         </div>
@@ -221,17 +213,9 @@ const Stats = () => {
     );
   }
 
-  const statsNavigation = (
-    <div className="flex space-x-4">
-      <Button variant="ghost" onClick={() => window.location.reload()}>
-        刷新数据
-      </Button>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <GlobalHeader secondaryNav={statsNavigation} />
+      <GlobalHeader onRefresh={fetchData} showRefresh={true} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -246,6 +230,7 @@ const Stats = () => {
               <p>年代数据点: {decadeData.length}</p>
               <p>性别数据: 男性 {genderData.find(g => g.name === '男性')?.value || 0} 人, 女性 {genderData.find(g => g.name === '女性')?.value || 0} 人</p>
               <p>增长数据点: {growthData.length}</p>
+              <p>最近查询时间: {new Date().toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -365,21 +350,21 @@ const Stats = () => {
                       cy="50%"
                       labelLine={false}
                       label={({ name, value, percent }) => {
-                        console.log('Pie chart label rendering:', { name, value, percent });
-                        return value > 0 ? `${name}: ${value}人 (${(percent * 100).toFixed(0)}%)` : null;
+                        console.log('饼图标签渲染:', { name, value, percent });
+                        return value > 0 ?`${name}: ${value}人 (${(percent * 100).toFixed(0)}%)` : null;
                       }}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
                     >
                       {genderData.map((entry, index) => {
-                        console.log('Rendering pie cell:', entry, index);
+                        console.log('渲染饼图单元格:', entry, index);
                         return <Cell key={`cell-${index}`} fill={entry.color} />;
                       })}
                     </Pie>
                     <Tooltip 
                       formatter={(value, name) => {
-                        console.log('Pie chart tooltip:', { value, name });
+                        console.log('饼图工具提示:', { value, name });
                         return [`${value}人`, name];
                       }}
                     />

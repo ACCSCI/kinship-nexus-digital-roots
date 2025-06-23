@@ -33,22 +33,29 @@ const Dashboard = () => {
 
   const fetchIndividuals = async () => {
     try {
+      console.log('开始获取个人数据...');
+      setLoading(true);
+      
       const { data, error } = await supabase
         .from("individual")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("created_at", { ascending: false });
+
+      console.log('数据库查询结果:', { data, error });
 
       if (error) {
+        console.error('数据库查询错误:', error);
         toast({
           title: "获取数据失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log('成功获取数据，条数:', data?.length || 0);
         setIndividuals(data || []);
       }
     } catch (error) {
+      console.error('获取数据时发生异常:', error);
       toast({
         title: "获取数据失败",
         description: "发生未知错误",
@@ -67,7 +74,7 @@ const Dashboard = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <GlobalHeader />
+        <GlobalHeader onRefresh={fetchIndividuals} showRefresh={true} />
         <div className="flex items-center justify-center h-64">
           <div className="text-lg">加载中...</div>
         </div>
@@ -75,23 +82,32 @@ const Dashboard = () => {
     );
   }
 
-  const dashboardNavigation = (
-    <div className="flex space-x-2">
-      <Button onClick={() => setShowAddDialog(true)} size="sm">
-        <Plus className="h-4 w-4 mr-2" />
-        添加成员
-      </Button>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <GlobalHeader secondaryNav={dashboardNavigation} />
+      <GlobalHeader onRefresh={fetchIndividuals} showRefresh={true} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">家族仪表板</h1>
-          <p className="text-gray-600">管理和查看您的家族信息</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">家族仪表板</h1>
+              <p className="text-gray-600">管理和查看您的家族信息</p>
+            </div>
+            <Button onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              添加成员
+            </Button>
+          </div>
+        </div>
+
+        {/* Debug Information */}
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-sm font-medium text-blue-800 mb-2">数据调试信息:</h3>
+          <div className="text-sm text-blue-700 space-y-1">
+            <p>总成员数: {individuals.length}</p>
+            <p>数据加载状态: {loading ? '加载中' : '已完成'}</p>
+            <p>最近一次查询时间: {new Date().toLocaleString()}</p>
+          </div>
         </div>
 
         {/* 统计卡片 */}
@@ -145,7 +161,9 @@ const Dashboard = () => {
               <Settings className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">85%</div>
+              <div className="text-2xl font-bold">
+                {individuals.length > 0 ? Math.round((individuals.filter(p => p.birth_date && p.full_name).length / individuals.length) * 100) : 0}%
+              </div>
               <p className="text-xs text-muted-foreground">
                 信息完整度评分
               </p>

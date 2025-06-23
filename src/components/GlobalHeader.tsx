@@ -2,17 +2,26 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
-import { TreePine } from "lucide-react";
+import { TreePine, RefreshCcw } from "lucide-react";
 
 interface GlobalHeaderProps {
-  secondaryNav?: React.ReactNode;
+  onRefresh?: () => void;
+  showRefresh?: boolean;
 }
 
-export const GlobalHeader: React.FC<GlobalHeaderProps> = ({ secondaryNav }) => {
+export const GlobalHeader: React.FC<GlobalHeaderProps> = ({ onRefresh, showRefresh = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleRefresh = () => {
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      window.location.reload();
+    }
+  };
 
   return (
     <nav className="bg-white shadow-sm border-b">
@@ -31,65 +40,67 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({ secondaryNav }) => {
 
           {/* Navigation Links */}
           <div className="flex items-center space-x-1">
-            {/* Primary Navigation - Always Visible */}
-            <div className="flex space-x-1 mr-4">
+            <Button 
+              variant={isActive("/stats") ? "default" : "ghost"} 
+              onClick={() => navigate("/stats")}
+              size="sm"
+            >
+              统计分析
+            </Button>
+            <Button 
+              variant={isActive("/branches") ? "default" : "ghost"} 
+              onClick={() => navigate("/branches")}
+              size="sm"
+            >
+              家族分支
+            </Button>
+            <Button 
+              variant={isActive("/events") ? "default" : "ghost"} 
+              onClick={() => navigate("/events")}
+              size="sm"
+            >
+              事件记录
+            </Button>
+            <Button 
+              variant={isActive("/relationships") ? "default" : "ghost"} 
+              onClick={() => navigate("/relationships")}
+              size="sm"
+            >
+              关系管理
+            </Button>
+            <Button 
+              variant={isActive("/dashboard") ? "default" : "ghost"} 
+              onClick={() => navigate("/dashboard")}
+              size="sm"
+            >
+              仪表板
+            </Button>
+            <Button 
+              variant={isActive("/tree") ? "default" : "ghost"} 
+              onClick={() => navigate("/tree")}
+              size="sm"
+            >
+              族谱图
+            </Button>
+            <Button 
+              variant={isActive("/settings") ? "default" : "ghost"} 
+              onClick={() => navigate("/settings")}
+              size="sm"
+            >
+              设置
+            </Button>
+            
+            {/* Refresh Button */}
+            <div className="border-l border-gray-200 pl-4 ml-4">
               <Button 
-                variant={isActive("/dashboard") ? "default" : "ghost"} 
-                onClick={() => navigate("/dashboard")}
+                variant="ghost" 
+                onClick={handleRefresh}
                 size="sm"
               >
-                仪表板
-              </Button>
-              <Button 
-                variant={isActive("/tree") ? "default" : "ghost"} 
-                onClick={() => navigate("/tree")}
-                size="sm"
-              >
-                族谱图
-              </Button>
-              <Button 
-                variant={isActive("/stats") ? "default" : "ghost"} 
-                onClick={() => navigate("/stats")}
-                size="sm"
-              >
-                统计分析
-              </Button>
-              <Button 
-                variant={isActive("/branches") ? "default" : "ghost"} 
-                onClick={() => navigate("/branches")}
-                size="sm"
-              >
-                家族分支
-              </Button>
-              <Button 
-                variant={isActive("/relationships") ? "default" : "ghost"} 
-                onClick={() => navigate("/relationships")}
-                size="sm"
-              >
-                关系管理
-              </Button>
-              <Button 
-                variant={isActive("/events") ? "default" : "ghost"} 
-                onClick={() => navigate("/events")}
-                size="sm"
-              >
-                事件记录
-              </Button>
-              <Button 
-                variant={isActive("/settings") ? "default" : "ghost"} 
-                onClick={() => navigate("/settings")}
-                size="sm"
-              >
-                设置
+                <RefreshCcw className="h-4 w-4 mr-2" />
+                刷新数据
               </Button>
             </div>
-
-            {/* Secondary Navigation - Page-Specific */}
-            {secondaryNav && (
-              <div className="flex items-center space-x-1 border-l border-gray-200 pl-4">
-                {secondaryNav}
-              </div>
-            )}
           </div>
         </div>
       </div>

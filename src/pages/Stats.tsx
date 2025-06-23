@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -119,6 +120,10 @@ const Stats = () => {
     ]);
     setGrowthData([]);
   };
+
+  // 添加辅助函数来判断性别
+  const isMale = (gender: string) => gender === 'male' || gender === '男';
+  const isFemale = (gender: string) => gender === 'female' || gender === '女';
 
   const processStatistics = (data: Individual[]) => {
     console.log('=== 开始处理统计数据 ===');
@@ -246,7 +251,7 @@ const Stats = () => {
           </div>
         </div>
 
-        {/* 统计概览 */}
+        {/* 统计概览 - 修复性别过滤器 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -268,10 +273,10 @@ const Stats = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {individuals.filter(p => p.gender === 'male').length}
+                {individuals.filter(p => isMale(p.gender)).length}
               </div>
               <p className="text-xs text-muted-foreground">
-                占总数 {individuals.length > 0 ? ((individuals.filter(p => p.gender === 'male').length / individuals.length) * 100).toFixed(1) : 0}%
+                占总数 {individuals.length > 0 ? ((individuals.filter(p => isMale(p.gender)).length / individuals.length) * 100).toFixed(1) : 0}%
               </p>
             </CardContent>
           </Card>
@@ -283,10 +288,10 @@ const Stats = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {individuals.filter(p => p.gender === 'female').length}
+                {individuals.filter(p => isFemale(p.gender)).length}
               </div>
               <p className="text-xs text-muted-foreground">
-                占总数 {individuals.length > 0 ? ((individuals.filter(p => p.gender === 'female').length / individuals.length) * 100).toFixed(1) : 0}%
+                占总数 {individuals.length > 0 ? ((individuals.filter(p => isFemale(p.gender)).length / individuals.length) * 100).toFixed(1) : 0}%
               </p>
             </CardContent>
           </Card>

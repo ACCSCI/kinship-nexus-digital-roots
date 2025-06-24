@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '@/components/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,8 +47,9 @@ const AdminUsers = () => {
         console.error('Could not fetch auth users:', authError);
         // Continue with profiles only, properly typed
         const typedProfiles: UserProfile[] = (profiles || []).map(profile => ({
-          ...profile,
-          role: profile.role as 'USER' | 'ADMIN'
+          id: profile.id,
+          role: profile.role as 'USER' | 'ADMIN',
+          updated_at: profile.updated_at,
         }));
         setUsers(typedProfiles);
       } else {
@@ -55,8 +57,9 @@ const AdminUsers = () => {
         const usersWithEmails: UserProfile[] = (profiles || []).map(profile => {
           const authUser = authUsers.users.find(u => u.id === profile.id);
           return {
-            ...profile,
+            id: profile.id,
             role: profile.role as 'USER' | 'ADMIN',
+            updated_at: profile.updated_at,
             email: authUser?.email || 'Unknown'
           };
         });
@@ -91,7 +94,7 @@ const AdminUsers = () => {
       }
 
       // Log the audit event - find the current user before updating
-      const currentUser = users.find(user => user.id === userId);
+      const currentUser: UserProfile | undefined = users.find(user => user.id === userId);
       await logAuditEvent(AUDIT_ACTIONS.ROLE_CHANGE, {
         target_user_id: userId,
         new_role: newRole,

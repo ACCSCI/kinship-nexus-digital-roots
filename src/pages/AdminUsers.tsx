@@ -92,7 +92,7 @@ const AdminUsers = () => {
       }
 
       // Log the audit event
-      const currentUser = users.find((u: UserProfile) => u.id === userId);
+      const currentUser = users.find(u => u.id === userId);
       await logAuditEvent(AUDIT_ACTIONS.ROLE_CHANGE, {
         target_user_id: userId,
         new_role: newRole,

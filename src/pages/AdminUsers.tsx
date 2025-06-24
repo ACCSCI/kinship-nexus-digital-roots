@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '@/components/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -92,7 +91,7 @@ const AdminUsers = () => {
       }
 
       // Log the audit event - find the current user before updating
-      const currentUser: UserProfile | undefined = users.find((user: UserProfile) => user.id === userId);
+      const currentUser = users.find((user) => user.id === userId);
       await logAuditEvent(AUDIT_ACTIONS.ROLE_CHANGE, {
         target_user_id: userId,
         new_role: newRole,

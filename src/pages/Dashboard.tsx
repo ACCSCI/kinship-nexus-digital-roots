@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,10 @@ const Dashboard = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // 添加性别判断辅助函数
+  const isMale = (gender: string) => gender === 'male' || gender === '男';
+  const isFemale = (gender: string) => gender === 'female' || gender === '女';
 
   useEffect(() => {
     fetchIndividuals();
@@ -115,8 +120,18 @@ const Dashboard = () => {
           <h3 className="text-sm font-medium text-blue-800 mb-2">数据调试信息:</h3>
           <div className="text-sm text-blue-700 space-y-1">
             <p>总成员数: {individuals.length}</p>
+            <p>男性成员数: {individuals.filter(p => isMale(p.gender)).length}</p>
+            <p>女性成员数: {individuals.filter(p => isFemale(p.gender)).length}</p>
             <p>数据加载状态: {loading ? '加载中' : '已完成'}</p>
             <p>最近一次查询时间: {new Date().toLocaleString()}</p>
+            <div className="mt-2">
+              <p className="font-medium">性别分布详情:</p>
+              {individuals.slice(0, 5).map(person => (
+                <p key={person.id} className="ml-2">
+                  {person.full_name}: "{person.gender}" ({isMale(person.gender) ? '识别为男性' : isFemale(person.gender) ? '识别为女性' : '未识别'})
+                </p>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -204,8 +219,8 @@ const Dashboard = () => {
                           {person.birth_date ? new Date(person.birth_date).toLocaleDateString() : '出生日期未知'}
                         </p>
                       </div>
-                      <Badge variant={person.gender === 'male' ? 'default' : 'secondary'}>
-                        {person.gender === 'male' ? '男' : '女'}
+                      <Badge variant={isMale(person.gender) ? 'default' : 'secondary'}>
+                        {person.gender}
                       </Badge>
                       <Button 
                         variant="ghost" 

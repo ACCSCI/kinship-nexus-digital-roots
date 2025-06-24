@@ -2,7 +2,8 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
-import { TreePine, RefreshCcw } from "lucide-react";
+import { TreePine, RefreshCcw, Shield } from "lucide-react";
+import { useUser } from '@/contexts/UserContext';
 
 interface GlobalHeaderProps {
   onRefresh?: () => void;
@@ -12,6 +13,7 @@ interface GlobalHeaderProps {
 export const GlobalHeader: React.FC<GlobalHeaderProps> = ({ onRefresh, showRefresh = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAdmin } = useUser();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -89,6 +91,19 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({ onRefresh, showRefre
             >
               设置
             </Button>
+            
+            {/* Admin Panel Link - Only visible to admins */}
+            {isAdmin && (
+              <Button 
+                variant={location.pathname.startsWith("/admin") ? "default" : "ghost"} 
+                onClick={() => navigate("/admin/users")}
+                size="sm"
+                className="ml-2 border-l border-gray-200 pl-2"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                管理面板
+              </Button>
+            )}
             
             {/* Refresh Button */}
             <div className="border-l border-gray-200 pl-4 ml-4">

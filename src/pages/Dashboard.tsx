@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Users, Calendar, Settings, BarChart } from "lucide-react";
 import AddMemberDialog from "@/components/AddMemberDialog";
 import { GlobalHeader } from "@/components/GlobalHeader";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface Individual {
   id: number;
@@ -33,6 +33,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchIndividuals();
+    
+    // Log user visit to dashboard
+    logAuditEvent(AUDIT_ACTIONS.USER_LOGIN, { 
+      page: 'dashboard',
+      timestamp: new Date().toISOString()
+    });
   }, []);
 
   const fetchIndividuals = async () => {
@@ -84,6 +90,8 @@ const Dashboard = () => {
   const handleMemberAdded = () => {
     fetchIndividuals();
     setShowAddDialog(false);
+    
+    // Audit logging is handled in the AddMemberDialog component
   };
 
   if (loading) {

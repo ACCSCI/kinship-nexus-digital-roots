@@ -35,7 +35,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -47,7 +47,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error fetching profile:', error);
         return null;
       }
-      return data;
+      
+      // Type assertion to ensure role is properly typed
+      return {
+        ...data,
+        role: data.role as 'USER' | 'ADMIN'
+      };
     } catch (error) {
       console.error('Error fetching profile:', error);
       return null;

@@ -45,14 +45,19 @@ const AdminUsers = () => {
 
       if (authError) {
         console.error('Could not fetch auth users:', authError);
-        // Continue with profiles only
-        setUsers(profiles || []);
+        // Continue with profiles only, properly typed
+        const typedProfiles: UserProfile[] = (profiles || []).map(profile => ({
+          ...profile,
+          role: profile.role as 'USER' | 'ADMIN'
+        }));
+        setUsers(typedProfiles);
       } else {
         // Merge profile data with email from auth users
-        const usersWithEmails = (profiles || []).map(profile => {
+        const usersWithEmails: UserProfile[] = (profiles || []).map(profile => {
           const authUser = authUsers.users.find(u => u.id === profile.id);
           return {
             ...profile,
+            role: profile.role as 'USER' | 'ADMIN',
             email: authUser?.email || 'Unknown'
           };
         });

@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, TreePine, Calendar, Settings } from "lucide-react";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Users, TreePine, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import AuthDialog from "@/components/AuthDialog";
@@ -15,10 +15,14 @@ const Index = () => {
   useEffect(() => {
     // 检查当前用户状态
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        navigate("/dashboard");
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        if (user) {
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        console.error('Error checking user:', error);
       }
     };
 
@@ -93,30 +97,30 @@ const Index = () => {
           <Card>
             <CardHeader>
               <Users className="h-12 w-12 text-indigo-600 mb-4" />
-              <CardTitle>家族成员管理</CardTitle>
-              <CardDescription>
+              <h3 className="text-xl font-semibold mb-2">家族成员管理</h3>
+              <p className="text-gray-600">
                 记录每位家族成员的详细信息，包括生平、照片和重要事件
-              </CardDescription>
+              </p>
             </CardHeader>
           </Card>
 
           <Card>
             <CardHeader>
               <TreePine className="h-12 w-12 text-green-600 mb-4" />
-              <CardTitle>关系网络</CardTitle>
-              <CardDescription>
+              <h3 className="text-xl font-semibold mb-2">关系网络</h3>
+              <p className="text-gray-600">
                 建立完整的家族关系网，追溯祖先，记录后代
-              </CardDescription>
+              </p>
             </CardHeader>
           </Card>
 
           <Card>
             <CardHeader>
               <Calendar className="h-12 w-12 text-purple-600 mb-4" />
-              <CardTitle>历史事件</CardTitle>
-              <CardDescription>
+              <h3 className="text-xl font-semibold mb-2">历史事件</h3>
+              <p className="text-gray-600">
                 记录家族重要历史事件，保存珍贵的家族记忆
-              </CardDescription>
+              </p>
             </CardHeader>
           </Card>
         </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '@/components/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,11 @@ interface UserProfile {
   id: string;
   role: 'USER' | 'ADMIN';
   updated_at: string;
+  email?: string;
+}
+
+interface AuthUser {
+  id: string;
   email?: string;
 }
 
@@ -54,7 +60,7 @@ const AdminUsers = () => {
       } else {
         // Merge profile data with email from auth users
         const usersWithEmails: UserProfile[] = (profiles || []).map(profile => {
-          const authUser = authUsers.users.find((authUserItem: any) => authUserItem.id === profile.id);
+          const authUser: AuthUser | undefined = authUsers.users.find((user: AuthUser) => user.id === profile.id);
           return {
             id: profile.id,
             role: profile.role as 'USER' | 'ADMIN',

@@ -3,15 +3,19 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { TreePine, Settings as SettingsIcon, Moon, Sun, Globe } from "lucide-react";
+import { TreePine, Settings as SettingsIcon, Moon, Sun, Globe, Shield, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const Settings = () => {
   const [theme, setTheme] = useState<string>("light");
   const [language, setLanguage] = useState<string>("zh");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, profile, isAdmin, refreshProfile } = useUser();
 
   useEffect(() => {
     // Load settings from localStorage
@@ -53,6 +57,39 @@ const Settings = () => {
       title: "语言设置已保存",
       description: `已设置为${newLanguage === "zh" ? "中文" : "English"}`
     });
+  };
+
+  const handleRoleChange = async (newRole: 'USER' | 'ADMIN') => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (error) {
+        toast({
+          title: "权限更新失败",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      await refreshProfile();
+      
+      toast({
+        title: "权限更新成功",
+        description: `已切换到${newRole === 'ADMIN' ? '管理员' : '普通用户'}权限`
+      });
+    } catch (error) {
+      toast({
+        title: "权限更新失败",
+        description: "发生未知错误",
+        variant: "destructive"
+      });
+    }
   };
 
   const resetSettings = () => {
@@ -97,6 +134,12 @@ const Settings = () => {
               <Button variant="ghost" onClick={() => navigate("/events")}>
                 事件管理
               </Button>
+              {isAdmin && (
+                <Button variant="ghost" onClick={() => navigate("/admin/users")}>
+                  <Shield className="h-4 w-4 mr-2" />
+                  管理面板
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -109,6 +152,51 @@ const Settings = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* 用户权限设置 */}
+          <Card className="dark:bg-gray-800 dark:border-gray-700">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 dark:text-white">
+                <Shield className="h-5 w-5" />
+                <span>用户权限</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  当前权限级别
+                </label>
+                <div className="flex items-center space-x-3 mb-4">
+                  <Badge variant={isAdmin ? 'destructive' : 'default'} className="text-sm">
+                    {isAdmin ? '管理员' : '普通用户'}
+                  </Badge>
+                  {isAdmin ? (
+                    <Shield className="h-4 w-4 text-red-500" />
+                  ) : (
+                    <User className="h-4 w-4 text-blue-500" />
+                  )}
+                </div>
+                
+                <Select 
+                  value={profile?.role || 'USER'} 
+                  onValueChange={(value: 'USER' | 'ADMIN') => handleRoleChange(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择权限级别" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USER">普通用户</SelectItem>
+                    <SelectItem value="ADMIN">管理员</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
+                <p><strong>普通用户:</strong> 只能查看族谱信息，无法修改数据</p>
+                <p><strong>管理员:</strong> 可以添加、修改、删除族谱数据，管理其他用户</p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* 主题设置 */}
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardHeader>
@@ -200,6 +288,18 @@ const Settings = () => {
                     {language === "zh" ? "中文" : "English"}
                   </p>
                 </div>
+                <div>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">用户权限:</span>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {isAdmin ? "管理员" : "普通用户"}
+                  </p>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">用户ID:</span>
+                  <p className="text-gray-600 dark:text-gray-400 text-xs">
+                    {user?.id?.substring(0, 8)}...
+                  </p>
+                </div>
               </div>
               
               <Button 
@@ -209,29 +309,6 @@ const Settings = () => {
               >
                 重置所有设置
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* 关于 */}
-          <Card className="dark:bg-gray-800 dark:border-gray-700">
-            <CardHeader>
-              <CardTitle className="dark:text-white">关于系统</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">系统名称:</span>
-                  <p className="text-gray-600 dark:text-gray-400">赛博族谱管理系统</p>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">版本:</span>
-                  <p className="text-gray-600 dark:text-gray-400">1.0.0</p>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">构建技术:</span>
-                  <p className="text-gray-600 dark:text-gray-400">React + TypeScript + Supabase</p>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>

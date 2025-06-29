@@ -7,7 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { TreePine, Users, Heart } from "lucide-react";
+import { TreePine, Users, Heart, Lock } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
 
 interface Individual {
   id: number;
@@ -45,6 +46,7 @@ const Relationships = () => {
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isAdmin } = useUser();
 
   useEffect(() => {
     fetchData();
@@ -151,6 +153,15 @@ const Relationships = () => {
   };
 
   const handleSaveRelationship = async () => {
+    if (!isAdmin) {
+      toast({
+        title: "权限不足",
+        description: "普通用户无修改权限",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!person1Id || !person2Id || !relationshipType) {
       toast({
         title: "请填写完整信息",
@@ -287,9 +298,13 @@ const Relationships = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   选择第一个人
                 </label>
-                <Select value={person1Id} onValueChange={setPerson1Id}>
+                <Select 
+                  value={person1Id} 
+                  onValueChange={setPerson1Id}
+                  disabled={!isAdmin}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择第一个人" />
+                    <SelectValue placeholder={isAdmin ? "选择第一个人" : "需要管理员权限"} />
                   </SelectTrigger>
                   <SelectContent>
                     {individuals.map(person => (
@@ -305,9 +320,13 @@ const Relationships = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   关系类型
                 </label>
-                <Select value={relationshipType} onValueChange={setRelationshipType}>
+                <Select 
+                  value={relationshipType} 
+                  onValueChange={setRelationshipType}
+                  disabled={!isAdmin}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择关系类型" />
+                    <SelectValue placeholder={isAdmin ? "选择关系类型" : "需要管理员权限"} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="parent">父母关系 (第一个人是父母)</SelectItem>
@@ -320,9 +339,13 @@ const Relationships = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   选择第二个人
                 </label>
-                <Select value={person2Id} onValueChange={setPerson2Id}>
+                <Select 
+                  value={person2Id} 
+                  onValueChange={setPerson2Id}
+                  disabled={!isAdmin}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="选择第二个人" />
+                    <SelectValue placeholder={isAdmin ? "选择第二个人" : "需要管理员权限"} />
                   </SelectTrigger>
                   <SelectContent>
                     {individuals.map(person => (
@@ -334,13 +357,26 @@ const Relationships = () => {
                 </Select>
               </div>
 
-              <Button 
-                onClick={handleSaveRelationship} 
-                disabled={saving || !person1Id || !person2Id || !relationshipType}
-                className="w-full"
-              >
-                {saving ? "保存中..." : "保存关系"}
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  onClick={handleSaveRelationship} 
+                  disabled={saving || !person1Id || !person2Id || !relationshipType || !isAdmin}
+                  className="flex-1"
+                  variant={isAdmin ? "default" : "secondary"}
+                >
+                  {isAdmin ? (
+                    saving ? "保存中..." : "保存关系"
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 mr-2" />
+                      保存关系
+                    </>
+                  )}
+                </Button>
+                {!isAdmin && (
+                  <span className="text-sm text-gray-500">普通用户无修改权限</span>
+                )}
+              </div>
             </CardContent>
           </Card>
 

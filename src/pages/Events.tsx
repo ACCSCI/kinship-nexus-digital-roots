@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { TreePine, Calendar, Plus } from "lucide-react";
+import { TreePine, Calendar, Plus, Lock } from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
 
 interface Event {
   id: number;
@@ -31,6 +32,7 @@ const Events = () => {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isAdmin } = useUser();
 
   useEffect(() => {
     fetchEvents();
@@ -64,6 +66,15 @@ const Events = () => {
   };
 
   const handleCreateEvent = async () => {
+    if (!isAdmin) {
+      toast({
+        title: "权限不足",
+        description: "普通用户无修改权限",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!newEvent.title || !newEvent.date || !newEvent.description) {
       toast({
         title: "请填写完整信息",
@@ -112,6 +123,18 @@ const Events = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCreateDialogClick = () => {
+    if (!isAdmin) {
+      toast({
+        title: "权限不足",
+        description: "普通用户无修改权限",
+        variant: "destructive"
+      });
+      return;
+    }
+    setShowCreateDialog(true);
   };
 
   if (loading) {
@@ -168,59 +191,72 @@ const Events = () => {
               <Calendar className="h-5 w-5" />
               <CardTitle>家族事件 ({events.length})</CardTitle>
             </div>
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-              <DialogTrigger asChild>
-                <Button className="ml-auto">
-                  <Plus className="h-4 w-4 mr-2" />
-                  创建新事件
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>创建新事件</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      事件标题
-                    </label>
-                    <Input
-                      value={newEvent.title}
-                      onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                      placeholder="输入事件标题"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      事件日期
-                    </label>
-                    <Input
-                      type="date"
-                      value={newEvent.date}
-                      onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      事件描述
-                    </label>
-                    <Textarea
-                      value={newEvent.description}
-                      onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                      placeholder="输入事件描述"
-                      rows={4}
-                    />
-                  </div>
+            <div className="ml-auto flex items-center space-x-2">
+              <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                <DialogTrigger asChild>
                   <Button 
-                    onClick={handleCreateEvent} 
-                    disabled={saving}
-                    className="w-full"
+                    onClick={handleCreateDialogClick}
+                    disabled={!isAdmin}
+                    variant={isAdmin ? "default" : "secondary"}
                   >
-                    {saving ? "创建中..." : "创建事件"}
+                    {isAdmin ? (
+                      <Plus className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Lock className="h-4 w-4 mr-2" />
+                    )}
+                    创建新事件
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>创建新事件</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        事件标题
+                      </label>
+                      <Input
+                        value={newEvent.title}
+                        onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                        placeholder="输入事件标题"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        事件日期
+                      </label>
+                      <Input
+                        type="date"
+                        value={newEvent.date}
+                        onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        事件描述
+                      </label>
+                      <Textarea
+                        value={newEvent.description}
+                        onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                        placeholder="输入事件描述"
+                        rows={4}
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleCreateEvent} 
+                      disabled={saving}
+                      className="w-full"
+                    >
+                      {saving ? "创建中..." : "创建事件"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              {!isAdmin && (
+                <span className="text-sm text-gray-500">普通用户无修改权限</span>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {events.length > 0 ? (
@@ -252,7 +288,7 @@ const Events = () => {
               </Table>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                暂无事件记录，点击上方按钮创建新事件
+                暂无事件记录，{isAdmin ? "点击上方按钮创建新事件" : "需要管理员权限创建事件"}
               </div>
             )}
           </CardContent>

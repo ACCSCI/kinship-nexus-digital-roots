@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,9 +6,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Plus, Users, Calendar, Settings, BarChart } from "lucide-react";
+import { Plus, Users, Calendar, Settings, BarChart, Lock } from "lucide-react";
 import AddMemberDialog from "@/components/AddMemberDialog";
 import { GlobalHeader } from "@/components/GlobalHeader";
+import { useUser } from "@/contexts/UserContext";
 
 interface Individual {
   id: number;
@@ -26,6 +26,7 @@ const Dashboard = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isAdmin } = useUser();
 
   const fetchIndividuals = async () => {
     try {
@@ -71,6 +72,18 @@ const Dashboard = () => {
     setShowAddDialog(false);
   };
 
+  const handleAddMemberClick = () => {
+    if (!isAdmin) {
+      toast({
+        title: "权限不足",
+        description: "普通用户无修改权限",
+        variant: "destructive"
+      });
+      return;
+    }
+    setShowAddDialog(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -93,10 +106,23 @@ const Dashboard = () => {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">家族仪表板</h1>
               <p className="text-gray-600">管理和查看您的家族信息</p>
             </div>
-            <Button onClick={() => setShowAddDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              添加成员
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button 
+                onClick={handleAddMemberClick}
+                disabled={!isAdmin}
+                variant={isAdmin ? "default" : "secondary"}
+              >
+                {isAdmin ? (
+                  <Plus className="h-4 w-4 mr-2" />
+                ) : (
+                  <Lock className="h-4 w-4 mr-2" />
+                )}
+                添加成员
+              </Button>
+              {!isAdmin && (
+                <span className="text-sm text-gray-500">普通用户无修改权限</span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -203,9 +229,11 @@ const Dashboard = () => {
                   <p>暂无家族成员记录</p>
                   <Button 
                     className="mt-4" 
-                    onClick={() => setShowAddDialog(true)}
+                    onClick={handleAddMemberClick}
+                    disabled={!isAdmin}
+                    variant={isAdmin ? "default" : "secondary"}
                   >
-                    添加第一个成员
+                    {isAdmin ? "添加第一个成员" : "需要管理员权限"}
                   </Button>
                 </div>
               )}

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,6 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Users, Calendar, Settings, BarChart } from "lucide-react";
 import AddMemberDialog from "@/components/AddMemberDialog";
 import { GlobalHeader } from "@/components/GlobalHeader";
-import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface Individual {
   id: number;
@@ -27,56 +27,31 @@ const Dashboard = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // 添加性别判断辅助函数
-  const isMale = (gender: string) => gender === 'male' || gender === '男';
-  const isFemale = (gender: string) => gender === 'female' || gender === '女';
-
-  useEffect(() => {
-    fetchIndividuals();
-    
-    // Log user visit to dashboard
-    logAuditEvent(AUDIT_ACTIONS.USER_LOGIN, { 
-      page: 'dashboard',
-      timestamp: new Date().toISOString()
-    });
-  }, []);
-
   const fetchIndividuals = async () => {
     try {
-      console.log('仪表盘：开始获取个人数据...');
+      console.log('开始获取个人数据...');
       setLoading(true);
       
-      console.log('查询 Individual 表...');
       const { data: individualData, error: individualError } = await supabase
         .from("Individual")
         .select("*")
         .order("created_at", { ascending: false });
 
-      console.log('Individual表查询结果:', { data: individualData, error: individualError });
+      console.log('查询结果:', { data: individualData, error: individualError });
 
       if (individualError) {
-        console.error('仪表盘：数据库查询错误:', individualError);
+        console.error('数据库查询错误:', individualError);
         toast({
           title: "获取数据失败",
           description: `数据库错误: ${individualError.message}`,
           variant: "destructive"
         });
       } else {
-        console.log('仪表盘：成功获取数据，条数:', individualData?.length || 0);
-        console.log('仪表盘：数据详情:', individualData);
+        console.log('成功获取数据，条数:', individualData?.length || 0);
         setIndividuals(individualData || []);
-        
-        if (!individualData || individualData.length === 0) {
-          console.warn('仪表盘：数据库中没有找到任何记录');
-          toast({
-            title: "暂无数据",
-            description: "数据库中暂无家族成员记录，请先添加成员",
-            variant: "default"
-          });
-        }
       }
     } catch (error) {
-      console.error('仪表盘：获取数据时发生异常:', error);
+      console.error('获取数据时发生异常:', error);
       toast({
         title: "获取数据失败",
         description: "发生未知错误，请检查网络连接",
@@ -87,11 +62,13 @@ const Dashboard = () => {
     }
   };
 
+  useEffect(() => {
+    fetchIndividuals();
+  }, []);
+
   const handleMemberAdded = () => {
     fetchIndividuals();
     setShowAddDialog(false);
-    
-    // Audit logging is handled in the AddMemberDialog component
   };
 
   if (loading) {
@@ -120,26 +97,6 @@ const Dashboard = () => {
               <Plus className="h-4 w-4 mr-2" />
               添加成员
             </Button>
-          </div>
-        </div>
-
-        {/* Debug Information */}
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="text-sm font-medium text-blue-800 mb-2">数据调试信息:</h3>
-          <div className="text-sm text-blue-700 space-y-1">
-            <p>总成员数: {individuals.length}</p>
-            <p>男性成员数: {individuals.filter(p => isMale(p.gender)).length}</p>
-            <p>女性成员数: {individuals.filter(p => isFemale(p.gender)).length}</p>
-            <p>数据加载状态: {loading ? '加载中' : '已完成'}</p>
-            <p>最近一次查询时间: {new Date().toLocaleString()}</p>
-            <div className="mt-2">
-              <p className="font-medium">性别分布详情:</p>
-              {individuals.slice(0, 5).map(person => (
-                <p key={person.id} className="ml-2">
-                  {person.full_name}: "{person.gender}" ({isMale(person.gender) ? '识别为男性' : isFemale(person.gender) ? '识别为女性' : '未识别'})
-                </p>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -227,7 +184,7 @@ const Dashboard = () => {
                           {person.birth_date ? new Date(person.birth_date).toLocaleDateString() : '出生日期未知'}
                         </p>
                       </div>
-                      <Badge variant={isMale(person.gender) ? 'default' : 'secondary'}>
+                      <Badge variant="outline">
                         {person.gender}
                       </Badge>
                       <Button 

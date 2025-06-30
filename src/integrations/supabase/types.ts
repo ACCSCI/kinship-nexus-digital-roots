@@ -158,6 +158,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_my_claim: {
         Args: { claim_name: string }
         Returns: string

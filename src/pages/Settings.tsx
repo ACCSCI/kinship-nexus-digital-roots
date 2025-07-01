@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 const Settings = () => {
   const [theme, setTheme] = useState<string>("light");
   const [language, setLanguage] = useState<string>("zh");
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, profile, isAdmin, refreshProfile } = useUser();
@@ -67,15 +68,20 @@ const Settings = () => {
   };
 
   const handleRoleChange = async (newRole: 'USER' | 'ADMIN') => {
-    if (!user) {
-      console.log('No user found, cannot change role');
+    if (!user || !profile) {
+      console.log('No user or profile found, cannot change role');
       return;
     }
 
-    console.log('Attempting to change role from', profile?.role, 'to', newRole, 'for user', user.id);
+    if (profile.role === newRole) {
+      console.log('Role is already', newRole, 'no change needed');
+      return;
+    }
+
+    setIsUpdatingRole(true);
+    console.log('Attempting to change role from', profile.role, 'to', newRole, 'for user', user.id);
 
     try {
-      // Skip checking current profile, directly update the role
       console.log('Updating role in database...');
       const { data: updateData, error: updateError } = await supabase
         .from('profiles')
@@ -98,19 +104,27 @@ const Settings = () => {
         return;
       }
 
+      if (!updateData || updateData.length === 0) {
+        console.error('No data returned from update');
+        toast({
+          title: "权限更新失败",
+          description: "数据库更新未返回数据",
+          variant: "destructive"
+        });
+        return;
+      }
+
       console.log('Database update successful, refreshing profile...');
       
       // 刷新用户配置文件
       await refreshProfile();
       
-      // 等待一点时间确保状态更新
-      setTimeout(() => {
-        console.log('Profile refresh completed, new profile:', profile);
-        toast({
-          title: "权限更新成功",
-          description: `已切换到${newRole === 'ADMIN' ? '管理员' : '普通用户'}权限`
-        });
-      }, 500);
+      console.log('Profile refresh completed');
+      
+      toast({
+        title: "权限更新成功",
+        description: `已切换到${newRole === 'ADMIN' ? '管理员' : '普通用户'}权限`
+      });
 
     } catch (error) {
       console.error('Role change error:', error);
@@ -119,6 +133,8 @@ const Settings = () => {
         description: "发生未知错误",
         variant: "destructive"
       });
+    } finally {
+      setIsUpdatingRole(false);
     }
   };
 
@@ -191,6 +207,7 @@ const Settings = () => {
             <p>当前角色: {profile?.role || '未获取'}</p>
             <p>是否管理员: {isAdmin ? '是' : '否'}</p>
             <p>Profile更新时间: {profile?.updated_at}</p>
+            <p>更新状态: {isUpdatingRole ? '更新中...' : '空闲'}</p>
           </CardContent>
         </Card>
 
@@ -222,6 +239,7 @@ const Settings = () => {
                 <Select 
                   value={profile?.role || 'USER'} 
                   onValueChange={(value: 'USER' | 'ADMIN') => handleRoleChange(value)}
+                  disabled={isUpdatingRole}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="选择权限级别" />
@@ -231,6 +249,10 @@ const Settings = () => {
                     <SelectItem value="ADMIN">管理员</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                {isUpdatingRole && (
+                  <p className="text-sm text-blue-600 mt-2">正在更新权限...</p>
+                )}
               </div>
               
               <div className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
@@ -279,7 +301,6 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* 语言设置 */}
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2 dark:text-white">
@@ -309,7 +330,6 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* 系统信息 */}
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2 dark:text-white">

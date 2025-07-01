@@ -66,7 +66,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       const profileData = await fetchProfile(user.id);
       console.log('UserContext - Profile refreshed:', profileData);
-      setProfile(profileData);
+      if (profileData) {
+        setProfile(profileData);
+        console.log('UserContext - Profile state updated to:', profileData);
+      }
+    } else {
+      console.log('UserContext - No user found, cannot refresh profile');
     }
   };
 
@@ -117,12 +122,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // 小延迟确保数据库更新完成
           setTimeout(async () => {
             if (mounted) {
               const profileData = await fetchProfile(session.user.id);
               setProfile(profileData);
             }
-          }, 0);
+          }, 100);
         } else {
           setProfile(null);
         }

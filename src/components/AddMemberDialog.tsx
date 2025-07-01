@@ -42,6 +42,7 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (field: string, value: string) => {
+    console.log(`Setting ${field} to:`, value);
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -49,10 +50,23 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
   };
 
   const handleSubmit = async () => {
+    console.log("Form data before validation:", formData);
+    
     if (!formData.full_name || !formData.gender || !formData.birth_date || !formData.birth_place) {
       toast({
         title: "请填写必填字段",
         description: "姓名、性别、出生日期和出生地为必填项",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // 验证性别值
+    if (formData.gender !== '男' && formData.gender !== '女') {
+      console.error("Invalid gender value:", formData.gender);
+      toast({
+        title: "性别值无效",
+        description: "性别必须是'男'或'女'",
         variant: "destructive"
       });
       return;
@@ -68,7 +82,7 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
         photo_path: formData.photo_path || null
       };
 
-      console.log("AddMemberDialog - Creating individual:", submitData);
+      console.log("AddMemberDialog - Creating individual with data:", submitData);
       const { data, error } = await supabase
         .from("Individual")
         .insert([submitData])
@@ -143,7 +157,7 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
 
           <div className="space-y-2">
             <Label htmlFor="gender">性别 *</Label>
-            <Select onValueChange={(value) => handleInputChange("gender", value)}>
+            <Select value={formData.gender} onValueChange={(value) => handleInputChange("gender", value)}>
               <SelectTrigger>
                 <SelectValue placeholder="请选择性别" />
               </SelectTrigger>
@@ -152,6 +166,11 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
                 <SelectItem value="女">女</SelectItem>
               </SelectContent>
             </Select>
+            {formData.gender && (
+              <div className="text-xs text-gray-500">
+                已选择: {formData.gender}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

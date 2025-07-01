@@ -72,6 +72,12 @@ const Relationships = () => {
         return;
       }
 
+      console.log("Relationships - Individuals data:", individualsData);
+      // 添加调试信息，查看每个人的性别数据
+      individualsData?.forEach(person => {
+        console.log(`Person: ${person.full_name}, Gender: "${person.gender}" (type: ${typeof person.gender})`);
+      });
+
       setIndividuals(individualsData || []);
 
       // Fetch relationships
@@ -110,6 +116,9 @@ const Relationships = () => {
       const relationshipsWithNames: RelationshipWithNames[] = (relationshipsData || []).map(rel => {
         const person1 = individualsData.find(p => p.id === rel.person1_id);
         const person2 = individualsData.find(p => p.id === rel.person2_id);
+        
+        console.log(`Relationship mapping - Person1: ${person1?.full_name} (${person1?.gender}), Person2: ${person2?.full_name} (${person2?.gender})`);
+        
         return {
           ...rel,
           person1_name: person1?.full_name || "未知",
@@ -127,7 +136,16 @@ const Relationships = () => {
   };
 
   const getGenderDisplay = (gender: string) => {
-    return gender === 'male' ? '男' : '女';
+    console.log(`getGenderDisplay called with: "${gender}" (type: ${typeof gender})`);
+    // 处理可能的性别值变化，支持更多格式
+    if (gender === 'male' || gender === '男' || gender === 'M') {
+      return '男';
+    } else if (gender === 'female' || gender === '女' || gender === 'F') {
+      return '女';
+    } else {
+      console.warn(`Unknown gender value: "${gender}"`);
+      return gender; // 返回原始值以便调试
+    }
   };
 
   const validateRelationship = (person1Id: number, person2Id: number, type: string): string | null => {
@@ -251,16 +269,25 @@ const Relationships = () => {
   };
 
   const getRelationshipDescription = (rel: RelationshipWithNames) => {
+    console.log(`getRelationshipDescription - Type: ${rel.type}, Person1: ${rel.person1_name} (${rel.person1_gender}), Person2: ${rel.person2_name} (${rel.person2_gender})`);
+    
     if (rel.type === "parent") {
-      const parentGender = rel.person1_gender === 'male' ? '父亲' : '母亲';
-      return `${rel.person1_name} 是 ${rel.person2_name} 的${parentGender}`;
+      // 检查person1的性别来确定是父亲还是母亲
+      if (rel.person1_gender === 'male' || rel.person1_gender === '男' || rel.person1_gender === 'M') {
+        return `${rel.person1_name} 是 ${rel.person2_name} 的父亲`;
+      } else if (rel.person1_gender === 'female' || rel.person1_gender === '女' || rel.person1_gender === 'F') {
+        return `${rel.person1_name} 是 ${rel.person2_name} 的母亲`;
+      } else {
+        console.warn(`Unknown parent gender: "${rel.person1_gender}"`);
+        return `${rel.person1_name} 是 ${rel.person2_name} 的父母`;
+      }
     } else if (rel.type === "spouse") {
-      const person1IsHusband = rel.person1_gender === 'male';
-      const person2IsHusband = rel.person2_gender === 'male';
+      const person1IsMale = rel.person1_gender === 'male' || rel.person1_gender === '男' || rel.person1_gender === 'M';
+      const person2IsMale = rel.person2_gender === 'male' || rel.person2_gender === '男' || rel.person2_gender === 'M';
       
-      if (person1IsHusband && !person2IsHusband) {
+      if (person1IsMale && !person2IsMale) {
         return `${rel.person1_name} 是 ${rel.person2_name} 的丈夫`;
-      } else if (!person1IsHusband && person2IsHusband) {
+      } else if (!person1IsMale && person2IsMale) {
         return `${rel.person1_name} 是 ${rel.person2_name} 的妻子`;
       } else {
         // 同性配偶或性别信息不完整的情况

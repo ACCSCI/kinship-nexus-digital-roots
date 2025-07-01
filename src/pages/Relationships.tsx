@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +34,8 @@ interface Relationship {
 interface RelationshipWithNames extends Relationship {
   person1_name: string;
   person2_name: string;
+  person1_gender: string;
+  person2_gender: string;
 }
 
 const Relationships = () => {
@@ -105,14 +106,16 @@ const Relationships = () => {
         return;
       }
 
-      // Map relationship data with person names
+      // Map relationship data with person names and genders
       const relationshipsWithNames: RelationshipWithNames[] = (relationshipsData || []).map(rel => {
         const person1 = individualsData.find(p => p.id === rel.person1_id);
         const person2 = individualsData.find(p => p.id === rel.person2_id);
         return {
           ...rel,
           person1_name: person1?.full_name || "未知",
-          person2_name: person2?.full_name || "未知"
+          person2_name: person2?.full_name || "未知",
+          person1_gender: person1?.gender || "",
+          person2_gender: person2?.gender || ""
         };
       });
 
@@ -121,6 +124,10 @@ const Relationships = () => {
     } catch (error) {
       console.error("Error fetching relationships:", error);
     }
+  };
+
+  const getGenderDisplay = (gender: string) => {
+    return gender === 'male' ? '男' : '女';
   };
 
   const validateRelationship = (person1Id: number, person2Id: number, type: string): string | null => {
@@ -245,9 +252,20 @@ const Relationships = () => {
 
   const getRelationshipDescription = (rel: RelationshipWithNames) => {
     if (rel.type === "parent") {
-      return `${rel.person1_name} 是 ${rel.person2_name} 的父母`;
+      const parentGender = rel.person1_gender === 'male' ? '父亲' : '母亲';
+      return `${rel.person1_name} 是 ${rel.person2_name} 的${parentGender}`;
     } else if (rel.type === "spouse") {
-      return `${rel.person1_name} 是 ${rel.person2_name} 的配偶`;
+      const person1IsHusband = rel.person1_gender === 'male';
+      const person2IsHusband = rel.person2_gender === 'male';
+      
+      if (person1IsHusband && !person2IsHusband) {
+        return `${rel.person1_name} 是 ${rel.person2_name} 的丈夫`;
+      } else if (!person1IsHusband && person2IsHusband) {
+        return `${rel.person1_name} 是 ${rel.person2_name} 的妻子`;
+      } else {
+        // 同性配偶或性别信息不完整的情况
+        return `${rel.person1_name} 与 ${rel.person2_name} 是配偶关系`;
+      }
     }
     return `${rel.person1_name} 与 ${rel.person2_name} 的关系: ${rel.type}`;
   };
@@ -301,7 +319,7 @@ const Relationships = () => {
                   <SelectContent>
                     {individuals.map(person => (
                       <SelectItem key={person.id} value={person.id.toString()}>
-                        {person.full_name} ({person.gender === 'male' ? '男' : '女'})
+                        {person.full_name} ({getGenderDisplay(person.gender)})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -342,7 +360,7 @@ const Relationships = () => {
                   <SelectContent>
                     {individuals.map(person => (
                       <SelectItem key={person.id} value={person.id.toString()}>
-                        {person.full_name} ({person.gender === 'male' ? '男' : '女'})
+                        {person.full_name} ({getGenderDisplay(person.gender)})
                       </SelectItem>
                     ))}
                   </SelectContent>

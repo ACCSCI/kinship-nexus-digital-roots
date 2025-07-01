@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: number
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: number
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       event: {
         Row: {
           created_at: string | null
@@ -72,6 +96,24 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          id: string
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          id: string
+          role?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       Relationship: {
         Row: {
           created_at: string
@@ -116,7 +158,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_my_claim: {
+        Args: { claim_name: string }
+        Returns: string
+      }
+      log_audit_event: {
+        Args: { p_action: string; p_details?: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

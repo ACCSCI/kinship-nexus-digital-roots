@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface Individual {
   id: number;
@@ -38,18 +39,27 @@ const DeleteConfirmDialog = ({ open, onOpenChange, individual, onSuccess }: Dele
 
     setLoading(true);
     try {
+      console.log("DeleteConfirmDialog - Deleting individual:", individual.id);
       const { error } = await supabase
         .from("Individual")
         .delete()
         .eq("id", individual.id);
 
       if (error) {
+        console.error("DeleteConfirmDialog - Delete error:", error);
         toast({
           title: "删除失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log("DeleteConfirmDialog - Delete successful");
+        // Log individual deletion
+        await logAuditEvent(AUDIT_ACTIONS.DELETE_INDIVIDUAL, {
+          individual_id: individual.id,
+          full_name: individual.full_name
+        });
+        
         toast({
           title: "删除成功",
           description: "家族成员已成功删除"
@@ -58,6 +68,7 @@ const DeleteConfirmDialog = ({ open, onOpenChange, individual, onSuccess }: Dele
         onOpenChange(false);
       }
     } catch (error) {
+      console.error("DeleteConfirmDialog - Delete unexpected error:", error);
       toast({
         title: "删除失败",
         description: "发生未知错误",

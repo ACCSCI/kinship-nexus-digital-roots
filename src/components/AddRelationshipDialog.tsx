@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -18,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface Individual {
   id: number;
@@ -100,6 +100,7 @@ const AddRelationshipDialog = ({ open, onOpenChange, currentIndividual, onSucces
         person2Id = parseInt(selectedPersonId);
       }
 
+      console.log("AddRelationshipDialog - Creating relationship:", { person1Id, person2Id, relationshipType });
       const { error } = await supabase
         .from("Relationship")
         .insert([{
@@ -109,12 +110,22 @@ const AddRelationshipDialog = ({ open, onOpenChange, currentIndividual, onSucces
         }]);
 
       if (error) {
+        console.error("AddRelationshipDialog - Create error:", error);
         toast({
           title: "添加关系失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log("AddRelationshipDialog - Create successful");
+        // Log relationship creation
+        await logAuditEvent(AUDIT_ACTIONS.CREATE_RELATIONSHIP, {
+          person1_id: person1Id,
+          person2_id: person2Id,
+          type: relationshipType,
+          context: 'member_detail_page'
+        });
+        
         toast({
           title: "添加关系成功",
           description: "家族关系已成功添加"
@@ -125,6 +136,7 @@ const AddRelationshipDialog = ({ open, onOpenChange, currentIndividual, onSucces
         onOpenChange(false);
       }
     } catch (error) {
+      console.error("AddRelationshipDialog - Create unexpected error:", error);
       toast({
         title: "添加关系失败",
         description: "发生未知错误",

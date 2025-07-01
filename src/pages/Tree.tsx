@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { TreePine, Users, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import {
   ReactFlow,
   Node,
@@ -22,6 +20,8 @@ import {
   Panel,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { GlobalHeader } from "@/components/GlobalHeader";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 // Match the actual database schema
 interface Individual {
@@ -70,6 +70,7 @@ const Tree = () => {
 
   const fetchData = async () => {
     try {
+      console.log("Tree - Fetching data...");
       // Fetch individuals
       const { data: individualsData, error: individualsError } = await supabase
         .from("Individual")
@@ -77,6 +78,7 @@ const Tree = () => {
         .order("full_name");
 
       if (individualsError) {
+        console.error("Tree - Individuals fetch error:", individualsError);
         toast({
           title: "获取个人数据失败",
           description: individualsError.message,
@@ -91,6 +93,7 @@ const Tree = () => {
         .select("*");
 
       if (relationshipsError) {
+        console.error("Tree - Relationships fetch error:", relationshipsError);
         toast({
           title: "获取关系数据失败",
           description: relationshipsError.message,
@@ -99,6 +102,7 @@ const Tree = () => {
         return;
       }
 
+      console.log("Tree - Fetch successful");
       setIndividuals(individualsData || []);
       setRelationships(relationshipsData || []);
 
@@ -113,6 +117,7 @@ const Tree = () => {
       setFamilyNames(Array.from(families).sort());
 
     } catch (error) {
+      console.error("Tree - Unexpected error:", error);
       toast({
         title: "获取数据失败",
         description: "发生未知错误",
@@ -141,7 +146,7 @@ const Tree = () => {
         label: (
           <div className="p-2 text-center">
             <div className="font-semibold">{person.full_name}</div>
-            <div className="text-xs text-gray-500">{person.gender === 'male' ? '男' : '女'}</div>
+            <div className="text-xs text-gray-500">{person.gender}</div>
             <div className="text-xs text-gray-400">
               {new Date(person.birth_date).getFullYear()}
               {person.death_date && ` - ${new Date(person.death_date).getFullYear()}`}
@@ -151,7 +156,7 @@ const Tree = () => {
         person: person
       },
       style: {
-        background: person.gender === 'male' ? '#dbeafe' : '#fef3f2',
+        background: person.gender === '男' ? '#dbeafe' : '#fef3f2',
         border: '2px solid #cbd5e1',
         borderRadius: '8px',
         width: 180,
@@ -165,34 +170,96 @@ const Tree = () => {
         filteredPersonIds.has(rel.person1_id) && 
         filteredPersonIds.has(rel.person2_id)
       )
-      .map(rel => ({
-        id: `${rel.person1_id}-${rel.person2_id}`,
-        source: rel.person1_id.toString(),
-        target: rel.person2_id.toString(),
-        label: rel.type === 'parent' ? '父母' : rel.type === 'spouse' ? '配偶' : rel.type,
-        type: 'smoothstep',
-        style: { 
-          stroke: rel.type === 'parent' ? '#10b981' : '#f59e0b',
-          strokeWidth: 2
-        },
-        labelStyle: { 
-          fontSize: 12,
-          fontWeight: 'bold'
+      .map(rel => {
+        // 获取关系双方的信息以生成精确的标签
+        const person1 = filteredIndividuals.find(p => p.id === rel.person1_id);
+        const person2 = filteredIndividuals.find(p => p.id === rel.person2_id);
+        
+        let edgeLabel = rel.type;
+        
+        console.log(`Tree edge - Type: ${rel.type}, Person1: ${person1?.full_name} (gender: "${person1?.gender}"), Person2: ${person2?.full_name} (gender: "${person2?.gender}")`);
+        
+        if (rel.type === 'parent') {
+          // 根据性别显示父亲或母亲
+          if (person1?.gender === '男') {
+            edgeLabel = '父亲';
+          } else if (person1?.gender === '女') {
+            edgeLabel = '母亲';
+          } else {
+            edgeLabel = '父母';
+          }
+        } else if (rel.type === 'spouse') {
+          // 更明确的配偶关系判断
+          console.log(`Tree spouse edge - Person1 gender: "${person1?.gender}", Person2 gender: "${person2?.gender}"`);
+          
+          if (person1?.gender === '男' && person2?.gender === '女') {
+            console.log("Tree: Male to Female - showing husband");
+            edgeLabel = '丈夫';
+          } else if (person1?.gender === '女' && person2?.gender === '男') {
+            console.log("Tree: Female to Male - showing wife");
+            edgeLabel = '妻子';
+          } else {
+            console.log(`Tree: Other case - Person1: "${person1?.gender}", Person2: "${person2?.gender}" - showing generic spouse`);
+            edgeLabel = '配偶';
+          }
         }
-      }));
+        
+        return {
+          id: `${rel.person1_id}-${rel.person2_id}`,
+          source: rel.person1_id.toString(),
+          target: rel.person2_id.toString(),
+          label: edgeLabel,
+          type: 'smoothstep',
+          style: { 
+            stroke: rel.type === 'parent' ? '#10b981' : '#f59e0b',
+            strokeWidth: 2
+          },
+          labelStyle: { 
+            fontSize: 12,
+            fontWeight: 'bold'
+          }
+        };
+      });
 
     setNodes(newNodes);
     setEdges(newEdges);
+    
+    // Log tree generation
+    logAuditEvent('GENERATE_FAMILY_TREE', {
+      family_filter: familyFilter,
+      node_count: newNodes.length,
+      edge_count: newEdges.length
+    });
   };
 
   const handleNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setSelectedNodeData(node.data.person as Individual);
+    // Log node click
+    logAuditEvent('VIEW_TREE_NODE', { 
+      individual_id: (node.data.person as Individual).id 
+    });
   }, []);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
+
+  const handleFamilyFilterChange = (value: string) => {
+    setFamilyFilter(value);
+    logAuditEvent('FILTER_FAMILY_TREE', { filter: value });
+  };
+
+  const handleViewMember = (individualId: number) => {
+    logAuditEvent(AUDIT_ACTIONS.VIEW_INDIVIDUAL, { individual_id: individualId });
+    navigate(`/member/${individualId}`);
+  };
+
+  const handleRefresh = () => {
+    console.log("Tree - Refreshing data...");
+    logAuditEvent('REFRESH_DATA', { page: 'tree' });
+    fetchData();
+  };
 
   if (loading) {
     return (
@@ -204,37 +271,7 @@ const Tree = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* 导航栏 */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <TreePine className="h-8 w-8 text-indigo-600" />
-              <h1 className="text-xl font-bold text-gray-900">赛博族谱</h1>
-            </div>
-            <div className="flex space-x-4">
-              <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-                仪表板
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/branches")}>
-                家族分支
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/stats")}>
-                统计分析
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/relationships")}>
-                关系管理
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/events")}>
-                事件管理
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/settings")}>
-                设置
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <GlobalHeader onRefresh={handleRefresh} showRefresh={true} />
 
       <div className="flex h-[calc(100vh-4rem)]">
         {/* 左侧控制面板 */}
@@ -247,7 +284,7 @@ const Tree = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 筛选家族
               </label>
-              <Select value={familyFilter} onValueChange={setFamilyFilter}>
+              <Select value={familyFilter} onValueChange={handleFamilyFilterChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="选择家族" />
                 </SelectTrigger>
@@ -287,7 +324,7 @@ const Tree = () => {
               <CardContent>
                 <div className="space-y-2 text-sm">
                   <div><strong>姓名:</strong> {selectedNodeData.full_name}</div>
-                  <div><strong>性别:</strong> {selectedNodeData.gender === 'male' ? '男' : '女'}</div>
+                  <div><strong>性别:</strong> {selectedNodeData.gender}</div>
                   <div><strong>出生日期:</strong> {new Date(selectedNodeData.birth_date).toLocaleDateString('zh-CN')}</div>
                   <div><strong>出生地:</strong> {selectedNodeData.birth_place}</div>
                   {selectedNodeData.death_date && (
@@ -300,7 +337,7 @@ const Tree = () => {
                 <Button 
                   className="w-full mt-4" 
                   size="sm"
-                  onClick={() => navigate(`/member/${selectedNodeData.id}`)}
+                  onClick={() => handleViewMember(selectedNodeData.id)}
                 >
                   查看完整档案
                 </Button>

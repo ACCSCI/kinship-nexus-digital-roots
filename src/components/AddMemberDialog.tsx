@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface AddMemberDialogProps {
   open: boolean;
@@ -41,6 +42,7 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
   const [loading, setLoading] = useState(false);
 
   const handleInputChange = (field: string, value: string) => {
+    console.log(`Setting ${field} to:`, value);
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -48,10 +50,23 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
   };
 
   const handleSubmit = async () => {
+    console.log("Form data before validation:", formData);
+    
     if (!formData.full_name || !formData.gender || !formData.birth_date || !formData.birth_place) {
       toast({
         title: "请填写必填字段",
         description: "姓名、性别、出生日期和出生地为必填项",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // 验证性别值
+    if (formData.gender !== '男' && formData.gender !== '女') {
+      console.error("Invalid gender value:", formData.gender);
+      toast({
+        title: "性别值无效",
+        description: "性别必须是'男'或'女'",
         variant: "destructive"
       });
       return;
@@ -67,17 +82,29 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
         photo_path: formData.photo_path || null
       };
 
-      const { error } = await supabase
+      console.log("AddMemberDialog - Creating individual with data:", submitData);
+      const { data, error } = await supabase
         .from("Individual")
-        .insert([submitData]);
+        .insert([submitData])
+        .select()
+        .single();
 
       if (error) {
+        console.error("AddMemberDialog - Create error:", error);
         toast({
           title: "添加失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log("AddMemberDialog - Create successful:", data);
+        // Log individual creation
+        await logAuditEvent(AUDIT_ACTIONS.CREATE_INDIVIDUAL, {
+          individual_id: data.id,
+          full_name: data.full_name,
+          gender: data.gender
+        });
+        
         toast({
           title: "添加成功",
           description: "家族成员已成功添加"
@@ -96,6 +123,7 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
         onOpenChange(false);
       }
     } catch (error) {
+      console.error("AddMemberDialog - Create unexpected error:", error);
       toast({
         title: "添加失败",
         description: "发生未知错误",
@@ -129,7 +157,7 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
 
           <div className="space-y-2">
             <Label htmlFor="gender">性别 *</Label>
-            <Select onValueChange={(value) => handleInputChange("gender", value)}>
+            <Select value={formData.gender} onValueChange={(value) => handleInputChange("gender", value)}>
               <SelectTrigger>
                 <SelectValue placeholder="请选择性别" />
               </SelectTrigger>
@@ -138,6 +166,11 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
                 <SelectItem value="女">女</SelectItem>
               </SelectContent>
             </Select>
+            {formData.gender && (
+              <div className="text-xs text-gray-500">
+                已选择: {formData.gender}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

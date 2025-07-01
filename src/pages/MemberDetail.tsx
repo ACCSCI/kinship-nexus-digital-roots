@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Edit, Plus, TreePine, User } from "lucide-react";
+import { ArrowLeft, Edit, Plus, TreePine, User, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
 import EditMemberDialog from "@/components/EditMemberDialog";
 import AddRelationshipDialog from "@/components/AddRelationshipDialog";
+import DeleteConfirmDialog from "@/components/DeleteConfirmDialog";
 
 interface Individual {
   id: number;
@@ -34,11 +36,13 @@ interface Relationship {
 const MemberDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAdmin } = useUser();
   const [individual, setIndividual] = useState<Individual | null>(null);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAddRelationshipDialog, setShowAddRelationshipDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -164,6 +168,11 @@ const MemberDetail = () => {
     }
   };
 
+  const handleDeleteSuccess = () => {
+    // Navigate back to dashboard after successful deletion
+    navigate("/dashboard");
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">加载中...</div>;
   }
@@ -202,10 +211,21 @@ const MemberDetail = () => {
                 <h1 className="text-xl font-bold text-gray-900">成员详情</h1>
               </div>
             </div>
-            <Button onClick={() => setShowEditDialog(true)}>
-              <Edit className="h-4 w-4 mr-2" />
-              编辑信息
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button onClick={() => setShowEditDialog(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                编辑信息
+              </Button>
+              {isAdmin && (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  删除成员
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </nav>
@@ -225,6 +245,10 @@ const MemberDetail = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-gray-700">性别</h4>
+                    <p>{individual.gender}</p>
+                  </div>
                   <div>
                     <h4 className="font-medium text-gray-700">出生日期</h4>
                     <p>{formatDate(individual.birth_date)}</p>
@@ -391,6 +415,13 @@ const MemberDetail = () => {
         onOpenChange={setShowAddRelationshipDialog}
         currentIndividual={individual}
         onSuccess={fetchRelationships}
+      />
+
+      <DeleteConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        individual={individual}
+        onSuccess={handleDeleteSuccess}
       />
     </div>
   );

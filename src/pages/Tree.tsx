@@ -177,6 +177,8 @@ const Tree = () => {
         
         let edgeLabel = rel.type;
         
+        console.log(`Tree edge - Type: ${rel.type}, Person1: ${person1?.full_name} (gender: "${person1?.gender}"), Person2: ${person2?.full_name} (gender: "${person2?.gender}")`);
+        
         if (rel.type === 'parent') {
           // 根据性别显示父亲或母亲
           if (person1?.gender === '男') {
@@ -187,12 +189,17 @@ const Tree = () => {
             edgeLabel = '父母';
           }
         } else if (rel.type === 'spouse') {
-          // 根据性别显示丈夫或妻子关系
+          // 更明确的配偶关系判断
+          console.log(`Tree spouse edge - Person1 gender: "${person1?.gender}", Person2 gender: "${person2?.gender}"`);
+          
           if (person1?.gender === '男' && person2?.gender === '女') {
+            console.log("Tree: Male to Female - showing husband");
             edgeLabel = '丈夫';
           } else if (person1?.gender === '女' && person2?.gender === '男') {
+            console.log("Tree: Female to Male - showing wife");
             edgeLabel = '妻子';
           } else {
+            console.log(`Tree: Other case - Person1: "${person1?.gender}", Person2: "${person2?.gender}" - showing generic spouse`);
             edgeLabel = '配偶';
           }
         }

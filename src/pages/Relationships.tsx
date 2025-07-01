@@ -73,11 +73,6 @@ const Relationships = () => {
       }
 
       console.log("Relationships - Individuals data:", individualsData);
-      // 添加调试信息，查看每个人的性别数据
-      individualsData?.forEach(person => {
-        console.log(`Person: ${person.full_name}, Gender: "${person.gender}" (type: ${typeof person.gender})`);
-      });
-
       setIndividuals(individualsData || []);
 
       // Fetch relationships
@@ -269,7 +264,7 @@ const Relationships = () => {
   };
 
   const getRelationshipDescription = (rel: RelationshipWithNames) => {
-    console.log(`getRelationshipDescription - Type: ${rel.type}, Person1: ${rel.person1_name} (${rel.person1_gender}), Person2: ${rel.person2_name} (${rel.person2_gender})`);
+    console.log(`getRelationshipDescription - Type: ${rel.type}, Person1: ${rel.person1_name} (gender: "${rel.person1_gender}"), Person2: ${rel.person2_name} (gender: "${rel.person2_gender}")`);
     
     if (rel.type === "parent") {
       // 检查person1的性别来确定是父亲还是母亲
@@ -282,15 +277,17 @@ const Relationships = () => {
         return `${rel.person1_name} 是 ${rel.person2_name} 的父母`;
       }
     } else if (rel.type === "spouse") {
-      const person1IsMale = rel.person1_gender === '男';
-      const person2IsMale = rel.person2_gender === '男';
+      // 更明确的性别判断逻辑
+      console.log(`Spouse relationship - Person1 gender: "${rel.person1_gender}" (is male: ${rel.person1_gender === '男'}), Person2 gender: "${rel.person2_gender}" (is female: ${rel.person2_gender === '女'})`);
       
-      if (person1IsMale && !person2IsMale) {
+      if (rel.person1_gender === '男' && rel.person2_gender === '女') {
+        console.log("Case: Male to Female - returning husband");
         return `${rel.person1_name} 是 ${rel.person2_name} 的丈夫`;
-      } else if (!person1IsMale && person2IsMale) {
+      } else if (rel.person1_gender === '女' && rel.person2_gender === '男') {
+        console.log("Case: Female to Male - returning wife");
         return `${rel.person1_name} 是 ${rel.person2_name} 的妻子`;
       } else {
-        // 同性配偶或性别信息不完整的情况
+        console.log(`Case: Other - Person1: "${rel.person1_gender}", Person2: "${rel.person2_gender}" - returning generic spouse`);
         return `${rel.person1_name} 与 ${rel.person2_name} 是配偶关系`;
       }
     }

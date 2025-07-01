@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Settings as SettingsIcon, User, Palette, RefreshCw } from "lucide-react";
+import { Settings as SettingsIcon, User, Palette, RefreshCw, Bug } from "lucide-react";
 import { GlobalHeader } from "@/components/GlobalHeader";
 import { useUser } from "@/contexts/UserContext";
 
@@ -16,9 +16,10 @@ const Settings = () => {
   const [theme, setTheme] = useState("light");
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [isDebugging, setIsDebugging] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, profile, isAdmin, refreshProfile, forceRefreshProfile } = useUser();
+  const { user, profile, isAdmin, refreshProfile, forceRefreshProfile, debugUpdateRole } = useUser();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") || "light";
@@ -83,80 +84,75 @@ const Settings = () => {
     }
 
     if (profile.role === newRole) {
-      console.log('UserContext - Role is already', newRole, 'no change needed');
+      console.log('Settings - Role is already', newRole, 'no change needed');
       return;
     }
 
     setIsUpdatingRole(true);
     console.log(`Settings - Starting role change from ${profile.role} to ${newRole} for user ${user.id}`);
 
-    try {
-      // First, update the database
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          role: newRole, 
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', user.id);
-
-      if (updateError) {
-        console.error('Settings - Database update error:', updateError);
-        toast({
-          title: "权限更新失败",
-          description: updateError.message,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('Settings - Database update completed successfully');
-
-      // Wait longer and use force refresh with retries
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Force refresh the profile with retries
-      await forceRefreshProfile();
-      
-      // Double-check if the role was actually updated
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('profiles')
-        .select('role, updated_at')
-        .eq('id', user.id)
-        .single();
-
-      if (verifyError) {
-        console.error('Settings - Verification error:', verifyError);
-      } else {
-        console.log('Settings - Database verification result:', verifyData);
-        
-        if (verifyData.role === newRole) {
-          toast({
-            title: "权限更新成功",
-            description: `已切换到${newRole === 'ADMIN' ? '管理员' : '普通用户'}权限`,
-          });
-        } else {
-          console.error('Settings - Role mismatch after update:', {
-            expected: newRole,
-            actual: verifyData.role
-          });
-          toast({
-            title: "权限更新警告",
-            description: "数据库已更新，但界面可能需要手动刷新",
-            variant: "destructive"
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Settings - Role change error:', error);
+    const success = await debugUpdateRole(newRole);
+    
+    if (success) {
+      toast({
+        title: "权限更新成功",
+        description: `已切换到${newRole === 'ADMIN' ? '管理员' : '普通用户'}权限`,
+      });
+    } else {
       toast({
         title: "权限更新失败",
+        description: "请检查控制台获取详细错误信息",
+        variant: "destructive"
+      });
+    }
+    
+    setIsUpdatingRole(false);
+  };
+
+  const handleDebugCheck = async () => {
+    setIsDebugging(true);
+    console.log('Settings - Starting debug check...');
+    
+    if (!user) {
+      console.error('Debug - No user found');
+      setIsDebugging(false);
+      return;
+    }
+
+    try {
+      // 检查当前用户的认证状态
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log('Debug - Current session:', sessionData);
+
+      // 检查profiles表中的数据
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id);
+
+      console.log('Debug - Profile query result:', { data: profileData, error: profileError });
+
+      // 检查RLS策略
+      const { data: rlsTest, error: rlsError } = await supabase
+        .from('profiles')
+        .select('*');
+
+      console.log('Debug - RLS test (all profiles):', { data: rlsTest, error: rlsError });
+
+      toast({
+        title: "调试检查完成",
+        description: "请查看控制台获取详细信息"
+      });
+    } catch (error) {
+      console.error('Debug - Error:', error);
+      toast({
+        title: "调试检查失败",
         description: "发生未知错误",
         variant: "destructive"
       });
-    } finally {
-      setIsUpdatingRole(false);
     }
+    
+    setIsDebugging(false);
   };
 
   const handleManualRefresh = async () => {
@@ -233,7 +229,7 @@ const Settings = () => {
                 
                 <div className="flex items-center space-x-2">
                   <Select 
-                    value={profile?.role || 'ADMIN'} 
+                    value={profile?.role || 'USER'} 
                     onValueChange={(value: 'USER' | 'ADMIN') => handleRoleChange(value)}
                     disabled={isUpdatingRole}
                   >
@@ -258,10 +254,24 @@ const Settings = () => {
                 </div>
               </div>
               
+              {/* 调试按钮 */}
+              <div className="pt-4 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDebugCheck}
+                  disabled={isDebugging}
+                  className="w-full"
+                >
+                  <Bug className={`h-4 w-4 mr-2 ${isDebugging ? 'animate-spin' : ''}`} />
+                  调试检查权限问题
+                </Button>
+              </div>
+              
               <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
                 <p>• 管理员：可以添加、编辑、删除家族成员</p>
                 <p>• 普通用户：只能查看家族信息</p>
-                <p>• 如果权限显示不正确，请点击刷新按钮</p>
+                <p>• 如果权限显示不正确，请点击调试按钮检查问题</p>
               </div>
             </CardContent>
           </Card>

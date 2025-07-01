@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +17,7 @@ interface UserContextType {
   isAdmin: boolean;
   refreshProfile: () => Promise<void>;
   forceRefreshProfile: () => Promise<void>;
+  debugUpdateRole: (newRole: 'USER' | 'ADMIN') => Promise<boolean>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -37,9 +39,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchProfile = async (userId: string, forceRefresh: boolean = false): Promise<UserProfile | null> => {
     try {
       console.log(`UserContext - Fetching profile for user: ${userId}, forceRefresh: ${forceRefresh}`);
-      
-      // Add cache-busting timestamp for force refresh
-      const cacheKey = forceRefresh ? `?_t=${Date.now()}` : '';
       
       const { data, error } = await supabase
         .from('profiles')
@@ -64,6 +63,80 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const debugUpdateRole = async (newRole: 'USER' | 'ADMIN'): Promise<boolean> => {
+    if (!user) {
+      console.error('debugUpdateRole - No user found');
+      return false;
+    }
+
+    console.log(`debugUpdateRole - Starting role update to ${newRole} for user ${user.id}`);
+
+    try {
+      // 1. 首先检查当前用户是否存在于profiles表中
+      const { data: currentProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (fetchError) {
+        console.error('debugUpdateRole - Error fetching current profile:', fetchError);
+        return false;
+      }
+
+      console.log('debugUpdateRole - Current profile:', currentProfile);
+
+      // 2. 尝试更新角色
+      const { data: updateData, error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          role: newRole, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', user.id)
+        .select();
+
+      if (updateError) {
+        console.error('debugUpdateRole - Update error:', updateError);
+        return false;
+      }
+
+      console.log('debugUpdateRole - Update result:', updateData);
+
+      // 3. 验证更新是否成功
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (verifyError) {
+        console.error('debugUpdateRole - Verify error:', verifyError);
+        return false;
+      }
+
+      console.log('debugUpdateRole - Verification result:', verifyData);
+      
+      if (verifyData.role === newRole) {
+        console.log('debugUpdateRole - Role update successful');
+        // 强制刷新profile
+        await forceRefreshProfile();
+        return true;
+      } else {
+        console.error('debugUpdateRole - Role mismatch after update:', {
+          expected: newRole,
+          actual: verifyData.role
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('debugUpdateRole - Exception:', error);
+      return false;
+    }
+  };
+
   const refreshProfile = async () => {
     console.log('UserContext - Refreshing profile...');
     if (user) {
@@ -81,18 +154,22 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const forceRefreshProfile = async () => {
     console.log('UserContext - Force refreshing profile...');
     if (user) {
-      // Wait a bit to ensure database transaction is committed
+      // 等待确保数据库事务提交
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      let retries = 3;
+      let retries = 5;
       let profileData = null;
       
-      // Retry mechanism for fetching updated profile
-      while (retries > 0 && !profileData) {
+      // 重试机制获取更新后的profile
+      while (retries > 0) {
         console.log(`UserContext - Attempting to fetch profile, retries left: ${retries}`);
         profileData = await fetchProfile(user.id, true);
         
-        if (!profileData) {
+        if (profileData) {
+          console.log('UserContext - Force refresh successful:', profileData);
+          setProfile(profileData);
+          break;
+        } else {
           retries--;
           if (retries > 0) {
             console.log('UserContext - Profile fetch failed, waiting before retry...');
@@ -101,10 +178,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      if (profileData) {
-        console.log('UserContext - Force refresh successful:', profileData);
-        setProfile(profileData);
-      } else {
+      if (!profileData) {
         console.error('UserContext - Force refresh failed after all retries');
       }
     } else {
@@ -200,7 +274,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading,
       isAdmin,
       refreshProfile,
-      forceRefreshProfile
+      forceRefreshProfile,
+      debugUpdateRole
     }}>
       {children}
     </UserContext.Provider>

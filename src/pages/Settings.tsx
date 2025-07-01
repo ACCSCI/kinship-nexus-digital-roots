@@ -75,27 +75,7 @@ const Settings = () => {
     console.log('Attempting to change role from', profile?.role, 'to', newRole, 'for user', user.id);
 
     try {
-      // 先检查当前用户权限
-      console.log('Checking current user permissions...');
-      const { data: currentProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching current profile:', fetchError);
-        toast({
-          title: "获取用户信息失败",
-          description: fetchError.message,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('Current profile from DB:', currentProfile);
-
-      // 更新角色
+      // Skip checking current profile, directly update the role
       console.log('Updating role in database...');
       const { data: updateData, error: updateError } = await supabase
         .from('profiles')

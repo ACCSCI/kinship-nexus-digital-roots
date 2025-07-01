@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -181,7 +180,7 @@ const AddRelationshipDialog = ({ open, onOpenChange, currentIndividual, onSucces
               <SelectContent>
                 {individuals.map((individual) => (
                   <SelectItem key={individual.id} value={individual.id.toString()}>
-                    {individual.full_name} ({individual.gender === 'male' ? '男' : '女'}, {new Date(individual.birth_date).getFullYear()}年生)
+                    {individual.full_name} ({individual.gender}, {new Date(individual.birth_date).getFullYear()}年生)
                   </SelectItem>
                 ))}
               </SelectContent>

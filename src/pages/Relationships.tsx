@@ -137,10 +137,10 @@ const Relationships = () => {
 
   const getGenderDisplay = (gender: string) => {
     console.log(`getGenderDisplay called with: "${gender}" (type: ${typeof gender})`);
-    // 处理可能的性别值变化，支持更多格式
-    if (gender === 'male' || gender === '男' || gender === 'M') {
+    // 数据库中存储的是中文性别
+    if (gender === '男') {
       return '男';
-    } else if (gender === 'female' || gender === '女' || gender === 'F') {
+    } else if (gender === '女') {
       return '女';
     } else {
       console.warn(`Unknown gender value: "${gender}"`);
@@ -273,17 +273,17 @@ const Relationships = () => {
     
     if (rel.type === "parent") {
       // 检查person1的性别来确定是父亲还是母亲
-      if (rel.person1_gender === 'male' || rel.person1_gender === '男' || rel.person1_gender === 'M') {
+      if (rel.person1_gender === '男') {
         return `${rel.person1_name} 是 ${rel.person2_name} 的父亲`;
-      } else if (rel.person1_gender === 'female' || rel.person1_gender === '女' || rel.person1_gender === 'F') {
+      } else if (rel.person1_gender === '女') {
         return `${rel.person1_name} 是 ${rel.person2_name} 的母亲`;
       } else {
         console.warn(`Unknown parent gender: "${rel.person1_gender}"`);
         return `${rel.person1_name} 是 ${rel.person2_name} 的父母`;
       }
     } else if (rel.type === "spouse") {
-      const person1IsMale = rel.person1_gender === 'male' || rel.person1_gender === '男' || rel.person1_gender === 'M';
-      const person2IsMale = rel.person2_gender === 'male' || rel.person2_gender === '男' || rel.person2_gender === 'M';
+      const person1IsMale = rel.person1_gender === '男';
+      const person2IsMale = rel.person2_gender === '男';
       
       if (person1IsMale && !person2IsMale) {
         return `${rel.person1_name} 是 ${rel.person2_name} 的丈夫`;
@@ -346,7 +346,7 @@ const Relationships = () => {
                   <SelectContent>
                     {individuals.map(person => (
                       <SelectItem key={person.id} value={person.id.toString()}>
-                        {person.full_name} ({getGenderDisplay(person.gender)})
+                        {person.full_name} ({person.gender})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -387,7 +387,7 @@ const Relationships = () => {
                   <SelectContent>
                     {individuals.map(person => (
                       <SelectItem key={person.id} value={person.id.toString()}>
-                        {person.full_name} ({getGenderDisplay(person.gender)})
+                        {person.full_name} ({person.gender})
                       </SelectItem>
                     ))}
                   </SelectContent>

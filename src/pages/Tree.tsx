@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,7 +146,7 @@ const Tree = () => {
         label: (
           <div className="p-2 text-center">
             <div className="font-semibold">{person.full_name}</div>
-            <div className="text-xs text-gray-500">{person.gender === 'male' ? '男' : '女'}</div>
+            <div className="text-xs text-gray-500">{person.gender}</div>
             <div className="text-xs text-gray-400">
               {new Date(person.birth_date).getFullYear()}
               {person.death_date && ` - ${new Date(person.death_date).getFullYear()}`}
@@ -157,7 +156,7 @@ const Tree = () => {
         person: person
       },
       style: {
-        background: person.gender === 'male' ? '#dbeafe' : '#fef3f2',
+        background: person.gender === '男' ? '#dbeafe' : '#fef3f2',
         border: '2px solid #cbd5e1',
         borderRadius: '8px',
         width: 180,
@@ -171,21 +170,49 @@ const Tree = () => {
         filteredPersonIds.has(rel.person1_id) && 
         filteredPersonIds.has(rel.person2_id)
       )
-      .map(rel => ({
-        id: `${rel.person1_id}-${rel.person2_id}`,
-        source: rel.person1_id.toString(),
-        target: rel.person2_id.toString(),
-        label: rel.type === 'parent' ? '父母' : rel.type === 'spouse' ? '配偶' : rel.type,
-        type: 'smoothstep',
-        style: { 
-          stroke: rel.type === 'parent' ? '#10b981' : '#f59e0b',
-          strokeWidth: 2
-        },
-        labelStyle: { 
-          fontSize: 12,
-          fontWeight: 'bold'
+      .map(rel => {
+        // 获取关系双方的信息以生成精确的标签
+        const person1 = filteredIndividuals.find(p => p.id === rel.person1_id);
+        const person2 = filteredIndividuals.find(p => p.id === rel.person2_id);
+        
+        let edgeLabel = rel.type;
+        
+        if (rel.type === 'parent') {
+          // 根据性别显示父亲或母亲
+          if (person1?.gender === '男') {
+            edgeLabel = '父亲';
+          } else if (person1?.gender === '女') {
+            edgeLabel = '母亲';
+          } else {
+            edgeLabel = '父母';
+          }
+        } else if (rel.type === 'spouse') {
+          // 根据性别显示丈夫或妻子关系
+          if (person1?.gender === '男' && person2?.gender === '女') {
+            edgeLabel = '丈夫';
+          } else if (person1?.gender === '女' && person2?.gender === '男') {
+            edgeLabel = '妻子';
+          } else {
+            edgeLabel = '配偶';
+          }
         }
-      }));
+        
+        return {
+          id: `${rel.person1_id}-${rel.person2_id}`,
+          source: rel.person1_id.toString(),
+          target: rel.person2_id.toString(),
+          label: edgeLabel,
+          type: 'smoothstep',
+          style: { 
+            stroke: rel.type === 'parent' ? '#10b981' : '#f59e0b',
+            strokeWidth: 2
+          },
+          labelStyle: { 
+            fontSize: 12,
+            fontWeight: 'bold'
+          }
+        };
+      });
 
     setNodes(newNodes);
     setEdges(newEdges);
@@ -290,7 +317,7 @@ const Tree = () => {
               <CardContent>
                 <div className="space-y-2 text-sm">
                   <div><strong>姓名:</strong> {selectedNodeData.full_name}</div>
-                  <div><strong>性别:</strong> {selectedNodeData.gender === 'male' ? '男' : '女'}</div>
+                  <div><strong>性别:</strong> {selectedNodeData.gender}</div>
                   <div><strong>出生日期:</strong> {new Date(selectedNodeData.birth_date).toLocaleDateString('zh-CN')}</div>
                   <div><strong>出生地:</strong> {selectedNodeData.birth_place}</div>
                   {selectedNodeData.death_date && (

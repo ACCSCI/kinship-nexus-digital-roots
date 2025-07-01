@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface Individual {
   id: number;
@@ -97,18 +98,28 @@ const EditMemberDialog = ({ open, onOpenChange, individual, onSuccess }: EditMem
         photo_path: formData.photo_path || null
       };
 
+      console.log("EditMemberDialog - Updating individual:", individual.id, submitData);
       const { error } = await supabase
         .from("Individual")
         .update(submitData)
         .eq("id", individual.id);
 
       if (error) {
+        console.error("EditMemberDialog - Update error:", error);
         toast({
           title: "更新失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log("EditMemberDialog - Update successful");
+        // Log individual update
+        await logAuditEvent(AUDIT_ACTIONS.UPDATE_INDIVIDUAL, {
+          individual_id: individual.id,
+          full_name: formData.full_name,
+          changes: submitData
+        });
+        
         toast({
           title: "更新成功",
           description: "家族成员信息已成功更新"
@@ -117,6 +128,7 @@ const EditMemberDialog = ({ open, onOpenChange, individual, onSuccess }: EditMem
         onOpenChange(false);
       }
     } catch (error) {
+      console.error("EditMemberDialog - Update unexpected error:", error);
       toast({
         title: "更新失败",
         description: "发生未知错误",
@@ -155,8 +167,8 @@ const EditMemberDialog = ({ open, onOpenChange, individual, onSuccess }: EditMem
                 <SelectValue placeholder="请选择性别" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="男">男</SelectItem>
-                <SelectItem value="女">女</SelectItem>
+                <SelectItem value="male">男</SelectItem>
+                <SelectItem value="female">女</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface AddMemberDialogProps {
   open: boolean;
@@ -67,17 +68,29 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
         photo_path: formData.photo_path || null
       };
 
-      const { error } = await supabase
+      console.log("AddMemberDialog - Creating individual:", submitData);
+      const { data, error } = await supabase
         .from("Individual")
-        .insert([submitData]);
+        .insert([submitData])
+        .select()
+        .single();
 
       if (error) {
+        console.error("AddMemberDialog - Create error:", error);
         toast({
           title: "添加失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log("AddMemberDialog - Create successful:", data);
+        // Log individual creation
+        await logAuditEvent(AUDIT_ACTIONS.CREATE_INDIVIDUAL, {
+          individual_id: data.id,
+          full_name: data.full_name,
+          gender: data.gender
+        });
+        
         toast({
           title: "添加成功",
           description: "家族成员已成功添加"
@@ -96,6 +109,7 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
         onOpenChange(false);
       }
     } catch (error) {
+      console.error("AddMemberDialog - Create unexpected error:", error);
       toast({
         title: "添加失败",
         description: "发生未知错误",
@@ -134,8 +148,8 @@ const AddMemberDialog = ({ open, onOpenChange, onSuccess }: AddMemberDialogProps
                 <SelectValue placeholder="请选择性别" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="男">男</SelectItem>
-                <SelectItem value="女">女</SelectItem>
+                <SelectItem value="male">男</SelectItem>
+                <SelectItem value="female">女</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-import { TreePine, Calendar, Plus, Lock } from "lucide-react";
+import { Calendar, Plus, Lock } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
+import { GlobalHeader } from "@/components/GlobalHeader";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface Event {
   id: number;
@@ -31,7 +32,6 @@ const Events = () => {
     description: ""
   });
   const { toast } = useToast();
-  const navigate = useNavigate();
   const { isAdmin } = useUser();
 
   useEffect(() => {
@@ -40,21 +40,25 @@ const Events = () => {
 
   const fetchEvents = async () => {
     try {
+      console.log("Events - Fetching events...");
       const { data, error } = await supabase
         .from("event")
         .select("*")
         .order("date", { ascending: false });
 
       if (error) {
+        console.error("Events - Fetch error:", error);
         toast({
           title: "获取事件数据失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log("Events - Fetch successful:", data?.length);
         setEvents(data || []);
       }
     } catch (error) {
+      console.error("Events - Unexpected error:", error);
       toast({
         title: "获取事件数据失败",
         description: "发生未知错误",
@@ -87,6 +91,7 @@ const Events = () => {
     setSaving(true);
 
     try {
+      console.log("Events - Creating event:", newEvent);
       const { error } = await supabase
         .from("event")
         .insert({
@@ -96,12 +101,20 @@ const Events = () => {
         });
 
       if (error) {
+        console.error("Events - Create error:", error);
         toast({
           title: "创建事件失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log("Events - Create successful");
+        // Log event creation
+        await logAuditEvent(AUDIT_ACTIONS.CREATE_EVENT, {
+          title: newEvent.title,
+          date: newEvent.date
+        });
+        
         toast({
           title: "事件创建成功",
           description: "新事件已成功创建"
@@ -115,6 +128,7 @@ const Events = () => {
         await fetchEvents();
       }
     } catch (error) {
+      console.error("Events - Create unexpected error:", error);
       toast({
         title: "创建事件失败",
         description: "发生未知错误",
@@ -137,6 +151,12 @@ const Events = () => {
     setShowCreateDialog(true);
   };
 
+  const handleRefresh = () => {
+    console.log("Events - Refreshing data...");
+    logAuditEvent('REFRESH_DATA', { page: 'events' });
+    fetchEvents();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -147,37 +167,7 @@ const Events = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* 导航栏 */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <TreePine className="h-8 w-8 text-indigo-600" />
-              <h1 className="text-xl font-bold text-gray-900">赛博族谱</h1>
-            </div>
-            <div className="flex space-x-4">
-              <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-                仪表板
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/branches")}>
-                家族分支
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/tree")}>
-                族谱图
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/stats")}>
-                统计分析
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/relationships")}>
-                关系管理
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/settings")}>
-                设置
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <GlobalHeader onRefresh={handleRefresh} showRefresh={true} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

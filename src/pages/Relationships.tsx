@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-import { TreePine, Users, Heart, Lock } from "lucide-react";
+import { Users, Heart, Lock } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
+import { GlobalHeader } from "@/components/GlobalHeader";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface Individual {
   id: number;
@@ -45,7 +46,6 @@ const Relationships = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
   const { isAdmin } = useUser();
 
   useEffect(() => {
@@ -54,6 +54,7 @@ const Relationships = () => {
 
   const fetchData = async () => {
     try {
+      console.log("Relationships - Fetching data...");
       // Fetch individuals
       const { data: individualsData, error: individualsError } = await supabase
         .from("Individual")
@@ -61,6 +62,7 @@ const Relationships = () => {
         .order("full_name");
 
       if (individualsError) {
+        console.error("Relationships - Individuals fetch error:", individualsError);
         toast({
           title: "获取个人数据失败",
           description: individualsError.message,
@@ -75,6 +77,7 @@ const Relationships = () => {
       await fetchRelationships(individualsData || []);
 
     } catch (error) {
+      console.error("Relationships - Unexpected error:", error);
       toast({
         title: "获取数据失败",
         description: "发生未知错误",
@@ -93,6 +96,7 @@ const Relationships = () => {
         .order("created_at", { ascending: false });
 
       if (relationshipsError) {
+        console.error("Relationships - Relationships fetch error:", relationshipsError);
         toast({
           title: "获取关系数据失败",
           description: relationshipsError.message,
@@ -112,6 +116,7 @@ const Relationships = () => {
         };
       });
 
+      console.log("Relationships - Fetch successful");
       setRelationships(relationshipsWithNames);
     } catch (error) {
       console.error("Error fetching relationships:", error);
@@ -188,6 +193,7 @@ const Relationships = () => {
     setSaving(true);
 
     try {
+      console.log("Relationships - Creating relationship:", { person1IdNum, person2IdNum, relationshipType });
       const { error } = await supabase
         .from("Relationship")
         .insert({
@@ -197,12 +203,21 @@ const Relationships = () => {
         });
 
       if (error) {
+        console.error("Relationships - Create error:", error);
         toast({
           title: "保存关系失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log("Relationships - Create successful");
+        // Log relationship creation
+        await logAuditEvent(AUDIT_ACTIONS.CREATE_RELATIONSHIP, {
+          person1_id: person1IdNum,
+          person2_id: person2IdNum,
+          type: relationshipType
+        });
+        
         toast({
           title: "关系保存成功",
           description: "新的关系已成功建立"
@@ -217,6 +232,7 @@ const Relationships = () => {
         await fetchRelationships(individuals);
       }
     } catch (error) {
+      console.error("Relationships - Create unexpected error:", error);
       toast({
         title: "保存关系失败",
         description: "发生未知错误",
@@ -236,6 +252,12 @@ const Relationships = () => {
     return `${rel.person1_name} 与 ${rel.person2_name} 的关系: ${rel.type}`;
   };
 
+  const handleRefresh = () => {
+    console.log("Relationships - Refreshing data...");
+    logAuditEvent('REFRESH_DATA', { page: 'relationships' });
+    fetchData();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -246,37 +268,7 @@ const Relationships = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* 导航栏 */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <TreePine className="h-8 w-8 text-indigo-600" />
-              <h1 className="text-xl font-bold text-gray-900">赛博族谱</h1>
-            </div>
-            <div className="flex space-x-4">
-              <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-                仪表板
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/branches")}>
-                家族分支
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/tree")}>
-                族谱图
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/stats")}>
-                统计分析
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/events")}>
-                事件管理
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/settings")}>
-                设置
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <GlobalHeader onRefresh={handleRefresh} showRefresh={true} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

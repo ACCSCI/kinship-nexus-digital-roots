@@ -6,7 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { TreePine, Users } from "lucide-react";
+import { Users } from "lucide-react";
+import { GlobalHeader } from "@/components/GlobalHeader";
+import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
 
 // Match the actual database schema
 interface Individual {
@@ -37,18 +39,21 @@ const Branches = () => {
 
   const fetchIndividuals = async () => {
     try {
+      console.log("Branches - Fetching individuals...");
       const { data, error } = await supabase
         .from("Individual")
         .select("*")
         .order("full_name");
 
       if (error) {
+        console.error("Branches - Fetch error:", error);
         toast({
           title: "获取数据失败",
           description: error.message,
           variant: "destructive"
         });
       } else {
+        console.log("Branches - Fetch successful:", data?.length);
         setIndividuals(data || []);
         
         // Extract unique family names from full_name (first character)
@@ -70,6 +75,7 @@ const Branches = () => {
         }
       }
     } catch (error) {
+      console.error("Branches - Unexpected error:", error);
       toast({
         title: "获取数据失败",
         description: "发生未知错误",
@@ -85,6 +91,12 @@ const Branches = () => {
       person.full_name && person.full_name.startsWith(familyName)
     );
     setFilteredMembers(filtered);
+    
+    // Log family filter action
+    logAuditEvent('VIEW_FAMILY_BRANCH', {
+      family_name: familyName,
+      member_count: filtered.length
+    });
   };
 
   const handleFamilySelect = (familyName: string) => {
@@ -93,7 +105,15 @@ const Branches = () => {
   };
 
   const handleMemberClick = (memberId: number) => {
+    // Log member view action
+    logAuditEvent('VIEW_INDIVIDUAL', { individual_id: memberId });
     navigate(`/member/${memberId}`);
+  };
+
+  const handleRefresh = () => {
+    console.log("Branches - Refreshing data...");
+    logAuditEvent('REFRESH_DATA', { page: 'branches' });
+    fetchIndividuals();
   };
 
   if (loading) {
@@ -106,37 +126,7 @@ const Branches = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* 导航栏 */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <TreePine className="h-8 w-8 text-indigo-600" />
-              <h1 className="text-xl font-bold text-gray-900">赛博族谱</h1>
-            </div>
-            <div className="flex space-x-4">
-              <Button variant="ghost" onClick={() => navigate("/dashboard")}>
-                仪表板
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/tree")}>
-                族谱图
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/stats")}>
-                统计分析
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/relationships")}>
-                关系管理
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/events")}>
-                事件管理
-              </Button>
-              <Button variant="ghost" onClick={() => navigate("/settings")}>
-                设置
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <GlobalHeader onRefresh={handleRefresh} showRefresh={true} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

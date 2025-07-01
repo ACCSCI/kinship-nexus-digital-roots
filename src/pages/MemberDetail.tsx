@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Edit, Plus, TreePine, User, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
 import EditMemberDialog from "@/components/EditMemberDialog";
 import AddRelationshipDialog from "@/components/AddRelationshipDialog";
 import DeleteConfirmDialog from "@/components/DeleteConfirmDialog";
@@ -35,6 +36,7 @@ interface Relationship {
 const MemberDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAdmin } = useUser();
   const [individual, setIndividual] = useState<Individual | null>(null);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [loading, setLoading] = useState(true);
@@ -214,13 +216,15 @@ const MemberDetail = () => {
                 <Edit className="h-4 w-4 mr-2" />
                 编辑信息
               </Button>
-              <Button 
-                variant="destructive" 
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                删除成员
-              </Button>
+              {isAdmin && (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  删除成员
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -29,6 +29,13 @@ const Settings = () => {
     applyTheme(savedTheme);
   }, []);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('Settings - Current user:', user?.id);
+    console.log('Settings - Current profile:', profile);
+    console.log('Settings - Is admin:', isAdmin);
+  }, [user, profile, isAdmin]);
+
   const applyTheme = (newTheme: string) => {
     const root = document.documentElement;
     if (newTheme === "dark") {
@@ -60,30 +67,73 @@ const Settings = () => {
   };
 
   const handleRoleChange = async (newRole: 'USER' | 'ADMIN') => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, cannot change role');
+      return;
+    }
+
+    console.log('Attempting to change role from', profile?.role, 'to', newRole, 'for user', user.id);
 
     try {
-      const { error } = await supabase
+      // 先检查当前用户权限
+      console.log('Checking current user permissions...');
+      const { data: currentProfile, error: fetchError } = await supabase
         .from('profiles')
-        .update({ role: newRole, updated_at: new Date().toISOString() })
-        .eq('id', user.id);
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-      if (error) {
+      if (fetchError) {
+        console.error('Error fetching current profile:', fetchError);
         toast({
-          title: "权限更新失败",
-          description: error.message,
+          title: "获取用户信息失败",
+          description: fetchError.message,
           variant: "destructive"
         });
         return;
       }
 
+      console.log('Current profile from DB:', currentProfile);
+
+      // 更新角色
+      console.log('Updating role in database...');
+      const { data: updateData, error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          role: newRole, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', user.id)
+        .select();
+
+      console.log('Update result:', { data: updateData, error: updateError });
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        toast({
+          title: "权限更新失败",
+          description: `数据库错误: ${updateError.message}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('Database update successful, refreshing profile...');
+      
+      // 刷新用户配置文件
       await refreshProfile();
       
-      toast({
-        title: "权限更新成功",
-        description: `已切换到${newRole === 'ADMIN' ? '管理员' : '普通用户'}权限`
-      });
+      // 等待一点时间确保状态更新
+      setTimeout(() => {
+        console.log('Profile refresh completed, new profile:', profile);
+        toast({
+          title: "权限更新成功",
+          description: `已切换到${newRole === 'ADMIN' ? '管理员' : '普通用户'}权限`
+        });
+      }, 500);
+
     } catch (error) {
+      console.error('Role change error:', error);
       toast({
         title: "权限更新失败",
         description: "发生未知错误",
@@ -150,6 +200,19 @@ const Settings = () => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">系统设置</h1>
           <p className="text-gray-600 dark:text-gray-300">个性化您的族谱管理体验</p>
         </div>
+
+        {/* Debug信息 */}
+        <Card className="mb-8 bg-yellow-50 border-yellow-200">
+          <CardHeader>
+            <CardTitle className="text-yellow-800">调试信息</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-yellow-700">
+            <p>用户ID: {user?.id}</p>
+            <p>当前角色: {profile?.role || '未获取'}</p>
+            <p>是否管理员: {isAdmin ? '是' : '否'}</p>
+            <p>Profile更新时间: {profile?.updated_at}</p>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* 用户权限设置 */}

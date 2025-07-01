@@ -36,6 +36,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
+      console.log('UserContext - Fetching profile for user:', userId);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -43,23 +45,27 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('UserContext - Error fetching profile:', error);
         return null;
       }
+      
+      console.log('UserContext - Profile fetched successfully:', data);
       
       return {
         ...data,
         role: data.role as 'USER' | 'ADMIN'
       };
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('UserContext - Exception fetching profile:', error);
       return null;
     }
   };
 
   const refreshProfile = async () => {
+    console.log('UserContext - Refreshing profile...');
     if (user) {
       const profileData = await fetchProfile(user.id);
+      console.log('UserContext - Profile refreshed:', profileData);
       setProfile(profileData);
     }
   };
@@ -69,14 +75,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initializeAuth = async () => {
       try {
+        console.log('UserContext - Initializing auth...');
+        
         // Get initial session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error getting session:', error);
+          console.error('UserContext - Error getting session:', error);
         }
 
         if (mounted) {
+          console.log('UserContext - Session obtained:', session?.user?.id);
           setSession(session);
           setUser(session?.user ?? null);
           
@@ -87,7 +96,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('UserContext - Error initializing auth:', error);
         if (mounted) {
           setLoading(false);
         }
@@ -102,7 +111,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (event, session) => {
         if (!mounted) return;
 
-        console.log('Auth state change:', event, session?.user?.id);
+        console.log('UserContext - Auth state change:', event, session?.user?.id);
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -129,6 +138,16 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const isAdmin = profile?.role === 'ADMIN';
+
+  // Debug logging
+  useEffect(() => {
+    console.log('UserContext - State updated:', {
+      userId: user?.id,
+      profileRole: profile?.role,
+      isAdmin,
+      profileUpdatedAt: profile?.updated_at
+    });
+  }, [user, profile, isAdmin]);
 
   return (
     <UserContext.Provider value={{

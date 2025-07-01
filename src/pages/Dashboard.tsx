@@ -1,12 +1,14 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Plus, Users, Calendar, Settings, BarChart, Lock } from "lucide-react";
+import { Plus, Users, Calendar, Settings, BarChart, Lock, Search } from "lucide-react";
 import AddMemberDialog from "@/components/AddMemberDialog";
 import { GlobalHeader } from "@/components/GlobalHeader";
 import { useUser } from "@/contexts/UserContext";
@@ -22,6 +24,8 @@ interface Individual {
 
 const Dashboard = () => {
   const [individuals, setIndividuals] = useState<Individual[]>([]);
+  const [filteredIndividuals, setFilteredIndividuals] = useState<Individual[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const { toast } = useToast();
@@ -50,6 +54,7 @@ const Dashboard = () => {
       } else {
         console.log('成功获取数据，条数:', individualData?.length || 0);
         setIndividuals(individualData || []);
+        setFilteredIndividuals(individualData || []);
       }
     } catch (error) {
       console.error('获取数据时发生异常:', error);
@@ -66,6 +71,18 @@ const Dashboard = () => {
   useEffect(() => {
     fetchIndividuals();
   }, []);
+
+  // 搜索功能
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredIndividuals(individuals);
+    } else {
+      const filtered = individuals.filter(person => 
+        person.full_name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredIndividuals(filtered);
+    }
+  }, [searchTerm, individuals]);
 
   const handleMemberAdded = () => {
     fetchIndividuals();
@@ -191,13 +208,22 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>最近添加的成员</CardTitle>
-              <CardDescription>查看最新录入的家族成员信息</CardDescription>
+              <CardTitle>家族成员</CardTitle>
+              <CardDescription>查看所有家族成员信息（按添加时间降序排列）</CardDescription>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="按姓名搜索成员..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </CardHeader>
             <CardContent>
-              {individuals.length > 0 ? (
-                <div className="space-y-4">
-                  {individuals.slice(0, 5).map((person) => (
+              {filteredIndividuals.length > 0 ? (
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {filteredIndividuals.map((person) => (
                     <div key={person.id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
                       <Avatar>
                         <AvatarFallback>
@@ -222,6 +248,12 @@ const Dashboard = () => {
                       </Button>
                     </div>
                   ))}
+                </div>
+              ) : searchTerm ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Search className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>未找到匹配的成员</p>
+                  <p className="text-sm">请尝试其他搜索词</p>
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">

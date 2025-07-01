@@ -56,6 +56,7 @@ const EditMemberDialog = ({ open, onOpenChange, individual, onSuccess }: EditMem
 
   useEffect(() => {
     if (individual) {
+      console.log("EditMemberDialog - Setting form data with individual:", individual);
       setFormData({
         full_name: individual.full_name,
         gender: individual.gender,
@@ -70,6 +71,7 @@ const EditMemberDialog = ({ open, onOpenChange, individual, onSuccess }: EditMem
   }, [individual]);
 
   const handleInputChange = (field: string, value: string) => {
+    console.log("EditMemberDialog - Field change:", field, "Value:", value);
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -167,8 +169,8 @@ const EditMemberDialog = ({ open, onOpenChange, individual, onSuccess }: EditMem
                 <SelectValue placeholder="请选择性别" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="male">男</SelectItem>
-                <SelectItem value="female">女</SelectItem>
+                <SelectItem value="男">男</SelectItem>
+                <SelectItem value="女">女</SelectItem>
               </SelectContent>
             </Select>
           </div>

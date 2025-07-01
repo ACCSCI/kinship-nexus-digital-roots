@@ -246,6 +246,10 @@ const MemberDetail = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
+                    <h4 className="font-medium text-gray-700">性别</h4>
+                    <p>{individual.gender}</p>
+                  </div>
+                  <div>
                     <h4 className="font-medium text-gray-700">出生日期</h4>
                     <p>{formatDate(individual.birth_date)}</p>
                   </div>

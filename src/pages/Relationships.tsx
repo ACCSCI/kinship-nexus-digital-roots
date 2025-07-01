@@ -5,10 +5,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Heart, Lock } from "lucide-react";
+import { Users, Heart, Lock, Trash2 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { GlobalHeader } from "@/components/GlobalHeader";
 import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
+import DeleteRelationshipDialog from "@/components/DeleteRelationshipDialog";
 
 interface Individual {
   id: number;
@@ -46,6 +47,8 @@ const Relationships = () => {
   const [relationshipType, setRelationshipType] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedRelationship, setSelectedRelationship] = useState<RelationshipWithNames | null>(null);
   const { toast } = useToast();
   const { isAdmin } = useUser();
 
@@ -263,6 +266,11 @@ const Relationships = () => {
     }
   };
 
+  const handleDeleteRelationship = (relationship: RelationshipWithNames) => {
+    setSelectedRelationship(relationship);
+    setShowDeleteDialog(true);
+  };
+
   const getRelationshipDescription = (rel: RelationshipWithNames) => {
     console.log(`getRelationshipDescription - Type: ${rel.type}, Person1: ${rel.person1_name} (gender: "${rel.person1_gender}"), Person2: ${rel.person2_name} (gender: "${rel.person2_gender}")`);
     
@@ -429,6 +437,7 @@ const Relationships = () => {
                     <TableRow>
                       <TableHead>关系描述</TableHead>
                       <TableHead>建立时间</TableHead>
+                      <TableHead className="w-16">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -437,6 +446,17 @@ const Relationships = () => {
                         <TableCell>{getRelationshipDescription(rel)}</TableCell>
                         <TableCell>
                           {new Date(rel.created_at).toLocaleDateString('zh-CN')}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteRelationship(rel)}
+                            disabled={!isAdmin}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -451,6 +471,13 @@ const Relationships = () => {
           </Card>
         </div>
       </div>
+
+      <DeleteRelationshipDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        relationship={selectedRelationship}
+        onSuccess={() => fetchRelationships(individuals)}
+      />
     </div>
   );
 };

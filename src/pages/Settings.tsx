@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,9 +15,10 @@ import { useUser } from "@/contexts/UserContext";
 const Settings = () => {
   const [theme, setTheme] = useState("light");
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, profile, isAdmin, refreshProfile } = useUser();
+  const { user, profile, isAdmin, refreshProfile, forceRefreshProfile } = useUser();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") || "light";
@@ -83,13 +83,16 @@ const Settings = () => {
     }
 
     if (profile.role === newRole) {
+      console.log('UserContext - Role is already', newRole, 'no change needed');
       return;
     }
 
     setIsUpdatingRole(true);
+    console.log(`Settings - Starting role change from ${profile.role} to ${newRole} for user ${user.id}`);
 
     try {
-      const { error } = await supabase
+      // First, update the database
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
           role: newRole, 
@@ -97,24 +100,55 @@ const Settings = () => {
         })
         .eq('id', user.id);
 
-      if (error) {
+      if (updateError) {
+        console.error('Settings - Database update error:', updateError);
         toast({
           title: "权限更新失败",
-          description: error.message,
+          description: updateError.message,
           variant: "destructive"
         });
         return;
       }
 
-      // 刷新用户配置文件
-      await refreshProfile();
+      console.log('Settings - Database update completed successfully');
+
+      // Wait longer and use force refresh with retries
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      toast({
-        title: "权限更新成功",
-        description: `已切换到${newRole === 'ADMIN' ? '管理员' : '普通用户'}权限`,
-      });
+      // Force refresh the profile with retries
+      await forceRefreshProfile();
+      
+      // Double-check if the role was actually updated
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('role, updated_at')
+        .eq('id', user.id)
+        .single();
+
+      if (verifyError) {
+        console.error('Settings - Verification error:', verifyError);
+      } else {
+        console.log('Settings - Database verification result:', verifyData);
+        
+        if (verifyData.role === newRole) {
+          toast({
+            title: "权限更新成功",
+            description: `已切换到${newRole === 'ADMIN' ? '管理员' : '普通用户'}权限`,
+          });
+        } else {
+          console.error('Settings - Role mismatch after update:', {
+            expected: newRole,
+            actual: verifyData.role
+          });
+          toast({
+            title: "权限更新警告",
+            description: "数据库已更新，但界面可能需要手动刷新",
+            variant: "destructive"
+          });
+        }
+      }
     } catch (error) {
-      console.error('Role change error:', error);
+      console.error('Settings - Role change error:', error);
       toast({
         title: "权限更新失败",
         description: "发生未知错误",
@@ -122,6 +156,28 @@ const Settings = () => {
       });
     } finally {
       setIsUpdatingRole(false);
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    setIsManualRefreshing(true);
+    console.log('Settings - Manual refresh triggered');
+    
+    try {
+      await forceRefreshProfile();
+      toast({
+        title: "刷新完成",
+        description: "用户信息已更新"
+      });
+    } catch (error) {
+      console.error('Settings - Manual refresh error:', error);
+      toast({
+        title: "刷新失败",
+        description: "无法更新用户信息",
+        variant: "destructive"
+      });
+    } finally {
+      setIsManualRefreshing(false);
     }
   };
 
@@ -171,28 +227,41 @@ const Settings = () => {
                     <Badge variant={isAdmin ? "default" : "secondary"}>
                       {isAdmin ? "管理员" : "普通用户"}
                     </Badge>
-                    {isUpdatingRole && <RefreshCw className="h-4 w-4 animate-spin" />}
+                    {(isUpdatingRole || isManualRefreshing) && <RefreshCw className="h-4 w-4 animate-spin" />}
                   </div>
                 </div>
                 
-                <Select 
-                  value={profile?.role || 'ADMIN'} 
-                  onValueChange={(value: 'USER' | 'ADMIN') => handleRoleChange(value)}
-                  disabled={isUpdatingRole}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USER">普通用户</SelectItem>
-                    <SelectItem value="ADMIN">管理员</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center space-x-2">
+                  <Select 
+                    value={profile?.role || 'ADMIN'} 
+                    onValueChange={(value: 'USER' | 'ADMIN') => handleRoleChange(value)}
+                    disabled={isUpdatingRole}
+                  >
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USER">普通用户</SelectItem>
+                      <SelectItem value="ADMIN">管理员</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleManualRefresh}
+                    disabled={isManualRefreshing}
+                    title="手动刷新用户信息"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isManualRefreshing ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
               </div>
               
               <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
                 <p>• 管理员：可以添加、编辑、删除家族成员</p>
                 <p>• 普通用户：只能查看家族信息</p>
+                <p>• 如果权限显示不正确，请点击刷新按钮</p>
               </div>
             </CardContent>
           </Card>

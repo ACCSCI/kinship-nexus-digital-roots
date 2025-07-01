@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +15,7 @@ interface UserContextType {
   loading: boolean;
   isAdmin: boolean;
   refreshProfile: () => Promise<void>;
+  forceRefreshProfile: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -34,9 +34,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
+  const fetchProfile = async (userId: string, forceRefresh: boolean = false): Promise<UserProfile | null> => {
     try {
-      console.log('UserContext - Fetching profile for user:', userId);
+      console.log(`UserContext - Fetching profile for user: ${userId}, forceRefresh: ${forceRefresh}`);
+      
+      // Add cache-busting timestamp for force refresh
+      const cacheKey = forceRefresh ? `?_t=${Date.now()}` : '';
       
       const { data, error } = await supabase
         .from('profiles')
@@ -64,7 +67,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = async () => {
     console.log('UserContext - Refreshing profile...');
     if (user) {
-      const profileData = await fetchProfile(user.id);
+      const profileData = await fetchProfile(user.id, false);
       console.log('UserContext - Profile refreshed:', profileData);
       if (profileData) {
         setProfile(profileData);
@@ -72,6 +75,40 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } else {
       console.log('UserContext - No user found, cannot refresh profile');
+    }
+  };
+
+  const forceRefreshProfile = async () => {
+    console.log('UserContext - Force refreshing profile...');
+    if (user) {
+      // Wait a bit to ensure database transaction is committed
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      let retries = 3;
+      let profileData = null;
+      
+      // Retry mechanism for fetching updated profile
+      while (retries > 0 && !profileData) {
+        console.log(`UserContext - Attempting to fetch profile, retries left: ${retries}`);
+        profileData = await fetchProfile(user.id, true);
+        
+        if (!profileData) {
+          retries--;
+          if (retries > 0) {
+            console.log('UserContext - Profile fetch failed, waiting before retry...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+      
+      if (profileData) {
+        console.log('UserContext - Force refresh successful:', profileData);
+        setProfile(profileData);
+      } else {
+        console.error('UserContext - Force refresh failed after all retries');
+      }
+    } else {
+      console.log('UserContext - No user found, cannot force refresh profile');
     }
   };
 
@@ -162,7 +199,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       profile,
       loading,
       isAdmin,
-      refreshProfile
+      refreshProfile,
+      forceRefreshProfile
     }}>
       {children}
     </UserContext.Provider>

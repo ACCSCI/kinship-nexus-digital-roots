@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Heart, Lock, Trash2 } from "lucide-react";
+import { Users, Heart, Lock, Trash2, Edit, Search } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { GlobalHeader } from "@/components/GlobalHeader";
 import { logAuditEvent, AUDIT_ACTIONS } from "@/lib/audit";
@@ -42,12 +44,15 @@ interface RelationshipWithNames extends Relationship {
 const Relationships = () => {
   const [individuals, setIndividuals] = useState<Individual[]>([]);
   const [relationships, setRelationships] = useState<RelationshipWithNames[]>([]);
+  const [filteredRelationships, setFilteredRelationships] = useState<RelationshipWithNames[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [person1Id, setPerson1Id] = useState<string>("");
   const [person2Id, setPerson2Id] = useState<string>("");
   const [relationshipType, setRelationshipType] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedRelationship, setSelectedRelationship] = useState<RelationshipWithNames | null>(null);
   const { toast } = useToast();
   const { isAdmin } = useUser();
@@ -55,6 +60,19 @@ const Relationships = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // 搜索功能
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredRelationships(relationships);
+    } else {
+      const filtered = relationships.filter(rel => 
+        rel.person1_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rel.person2_name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredRelationships(filtered);
+    }
+  }, [searchTerm, relationships]);
 
   const fetchData = async () => {
     try {
@@ -128,6 +146,7 @@ const Relationships = () => {
 
       console.log("Relationships - Fetch successful");
       setRelationships(relationshipsWithNames);
+      setFilteredRelationships(relationshipsWithNames);
     } catch (error) {
       console.error("Error fetching relationships:", error);
     }
@@ -167,10 +186,11 @@ const Relationships = () => {
       }
     }
 
-    // Check for duplicate relationships
+    // Check for duplicate relationships (excluding current relationship when editing)
     const existingRelationship = relationships.find(rel => 
-      (rel.person1_id === person1Id && rel.person2_id === person2Id && rel.type === type) ||
-      (rel.person1_id === person2Id && rel.person2_id === person1Id && rel.type === type)
+      rel.id !== selectedRelationship?.id && // 编辑时排除当前关系
+      ((rel.person1_id === person1Id && rel.person2_id === person2Id && rel.type === type) ||
+       (rel.person1_id === person2Id && rel.person2_id === person1Id && rel.type === type))
     );
 
     if (existingRelationship) {
@@ -266,9 +286,114 @@ const Relationships = () => {
     }
   };
 
+  const handleEditRelationship = async () => {
+    if (!isAdmin || !selectedRelationship) {
+      toast({
+        title: "权限不足",
+        description: "只有管理员可以修改家族关系",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!person1Id || !person2Id || !relationshipType) {
+      toast({
+        title: "请填写完整信息",
+        description: "请选择两个人员和关系类型",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const person1IdNum = parseInt(person1Id);
+    const person2IdNum = parseInt(person2Id);
+
+    // Validate relationship
+    const validationError = validateRelationship(person1IdNum, person2IdNum, relationshipType);
+    if (validationError) {
+      toast({
+        title: "关系验证失败",
+        description: validationError,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      console.log("Relationships - Updating relationship:", selectedRelationship.id, { person1IdNum, person2IdNum, relationshipType });
+      const { error } = await supabase
+        .from("Relationship")
+        .update({
+          person1_id: person1IdNum,
+          person2_id: person2IdNum,
+          type: relationshipType
+        })
+        .eq("id", selectedRelationship.id);
+
+      if (error) {
+        console.error("Relationships - Update error:", error);
+        toast({
+          title: "更新关系失败",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        console.log("Relationships - Update successful");
+        await logAuditEvent(AUDIT_ACTIONS.UPDATE_RELATIONSHIP, {
+          id: selectedRelationship.id,
+          person1_id: person1IdNum,
+          person2_id: person2IdNum,
+          type: relationshipType
+        });
+        
+        toast({
+          title: "关系更新成功",
+          description: "关系信息已成功更新"
+        });
+        
+        // Clear form and close dialog
+        setPerson1Id("");
+        setPerson2Id("");
+        setRelationshipType("");
+        setShowEditDialog(false);
+        setSelectedRelationship(null);
+        
+        // Refresh relationships
+        await fetchRelationships(individuals);
+      }
+    } catch (error) {
+      console.error("Relationships - Update unexpected error:", error);
+      toast({
+        title: "更新关系失败",
+        description: "发生未知错误",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDeleteRelationship = (relationship: RelationshipWithNames) => {
     setSelectedRelationship(relationship);
     setShowDeleteDialog(true);
+  };
+
+  const handleEditDialogClick = (relationship: RelationshipWithNames) => {
+    if (!isAdmin) {
+      toast({
+        title: "权限不足",
+        description: "只有管理员可以修改家族关系",
+        variant: "destructive"
+      });
+      return;
+    }
+    setSelectedRelationship(relationship);
+    setPerson1Id(relationship.person1_id.toString());
+    setPerson2Id(relationship.person2_id.toString());
+    setRelationshipType(relationship.type);
+    setShowEditDialog(true);
   };
 
   const getRelationshipDescription = (rel: RelationshipWithNames) => {
@@ -432,43 +557,73 @@ const Relationships = () => {
           {/* 右侧: 现有关系列表 */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Users className="h-5 w-5" />
-                <span>现有关系 ({relationships.length})</span>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Users className="h-5 w-5" />
+                  <span>现有关系 ({filteredRelationships.length})</span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="搜索关系..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-48"
+                  />
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {relationships.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>关系描述</TableHead>
-                      <TableHead>建立时间</TableHead>
-                      <TableHead className="w-16">操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {relationships.map((rel) => (
-                      <TableRow key={rel.id}>
-                        <TableCell>{getRelationshipDescription(rel)}</TableCell>
-                        <TableCell>
-                          {new Date(rel.created_at).toLocaleDateString('zh-CN')}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteRelationship(rel)}
-                            disabled={!isAdmin}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
+              {filteredRelationships.length > 0 ? (
+                <div className="max-h-96 overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>关系描述</TableHead>
+                        <TableHead>建立时间</TableHead>
+                        <TableHead className="w-20">操作</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRelationships.map((rel) => (
+                        <TableRow key={rel.id}>
+                          <TableCell>{getRelationshipDescription(rel)}</TableCell>
+                          <TableCell>
+                            {new Date(rel.created_at).toLocaleDateString('zh-CN')}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditDialogClick(rel)}
+                                disabled={!isAdmin}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteRelationship(rel)}
+                                disabled={!isAdmin}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : searchTerm ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Search className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>未找到匹配的关系</p>
+                  <p className="text-sm">请尝试其他搜索词</p>
+                </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   暂无已建立的关系
@@ -478,6 +633,84 @@ const Relationships = () => {
           </Card>
         </div>
       </div>
+
+      {/* 编辑关系对话框 */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑关系</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                选择第一个人
+              </label>
+              <Select 
+                value={person1Id} 
+                onValueChange={setPerson1Id}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择第一个人" />
+                </SelectTrigger>
+                <SelectContent>
+                  {individuals.map(person => (
+                    <SelectItem key={person.id} value={person.id.toString()}>
+                      {person.full_name} ({person.gender})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                关系类型
+              </label>
+              <Select 
+                value={relationshipType} 
+                onValueChange={setRelationshipType}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择关系类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="parent">父母关系 (第一个人是父母)</SelectItem>
+                  <SelectItem value="spouse">配偶关系</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                选择第二个人
+              </label>
+              <Select 
+                value={person2Id} 
+                onValueChange={setPerson2Id}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择第二个人" />
+                </SelectTrigger>
+                <SelectContent>
+                  {individuals.map(person => (
+                    <SelectItem key={person.id} value={person.id.toString()}>
+                      {person.full_name} ({person.gender})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+                </Select>
+            </div>
+
+            <Button 
+              onClick={handleEditRelationship} 
+              disabled={saving || !person1Id || !person2Id || !relationshipType}
+              className="w-full"
+            >
+              {saving ? "更新中..." : "更新关系"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <DeleteRelationshipDialog
         open={showDeleteDialog}

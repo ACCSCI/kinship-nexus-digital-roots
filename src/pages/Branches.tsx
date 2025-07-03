@@ -192,7 +192,7 @@ const Branches = () => {
                           onClick={() => handleMemberClick(member.id)}
                         >
                           <TableCell className="font-medium">{member.full_name}</TableCell>
-                          <TableCell>{member.gender === 'male' ? '男' : '女'}</TableCell>
+                          <TableCell>{member.gender}</TableCell>
                           <TableCell>
                             {member.birth_date ? new Date(member.birth_date).toLocaleDateString('zh-CN') : '-'}
                           </TableCell>
